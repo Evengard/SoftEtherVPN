@@ -6056,6 +6056,39 @@ bool ServerDownloadSignature(CONNECTION *c, char **error_detail_str)
 
 					if (b == false)
 					{
+						// Trying to load well-known from HamCore (either bundled or folder)
+						if (StartWith(h->Target, "/.well-known"))
+						{
+							BUF* buf;
+							UCHAR* path;
+
+							path = Malloc(StrLen(h->Target) + 9);
+							Format(path, MAX_CLIENT_STR_LEN + 8, "/wwwroot%s", h->Target);
+							
+							Debug("Serving .well-known from HAMCORE : %s\n", path);
+							buf = ReadHamcore(path);
+
+							if (buf != NULL)
+							{
+								FreeHttpHeader(h);
+								h = NewHttpHeader("HTTP/1.1", "200", "OK");
+								AddHttpValue(h, NewHttpValue("Content-Type", HTTP_CONTENT_TYPE2));
+								AddHttpValue(h, NewHttpValue("Connection", "Keep-Alive"));
+								AddHttpValue(h, NewHttpValue("Keep-Alive", HTTP_KEEP_ALIVE));
+
+								PostHttp(c->FirstSock, h, buf->Buf, buf->Size);
+
+								FreeBuf(buf);
+
+								b = true;
+							}
+
+							Free(path);
+						}
+					}
+
+					if (b == false)
+					{
 						// Not Found
 						HttpSendNotFound(s, h->Target);
 
