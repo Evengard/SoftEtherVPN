@@ -13,35 +13,42 @@
 *  checked in wrappers to respond client properly.*/
 
 /*                   SA PAYLOAD                       */
-BUF* ikev2_SA_encode(IKEv2_SA_PAYLOAD *p) {
-	if (p == NULL) {
+BUF *ikev2_SA_encode(IKEv2_SA_PAYLOAD *p)
+{
+	if (p == NULL)
+	{
 		return NULL;
 	}
 
-	BUF* b = NewBuf();
+	BUF *b = NewBuf();
 
 	UINT len = LIST_NUM(p->proposals);
-	for (UINT i = 0; i < len; ++i) {
-		IKEv2_SA_PROPOSAL *prop = (IKEv2_SA_PROPOSAL*)LIST_DATA(p->proposals, i);
+	for (UINT i = 0; i < len; ++i)
+	{
+		IKEv2_SA_PROPOSAL *prop = (IKEv2_SA_PROPOSAL *)LIST_DATA(p->proposals, i);
 
-		BUF* tb = NewBuf();
-		for (UCHAR j = 0; j < prop->transform_number; ++j) {
+		BUF *tb = NewBuf();
+		for (UCHAR j = 0; j < prop->transform_number; ++j)
+		{
 			// Encoding transform into tb and write it into b
-			IKEv2_SA_TRANSFORM *t = (IKEv2_SA_TRANSFORM*)LIST_DATA(prop->transforms, j);
-			BUF* tpb = NewBuf();
+			IKEv2_SA_TRANSFORM *t = (IKEv2_SA_TRANSFORM *)LIST_DATA(prop->transforms, j);
+			BUF *tpb = NewBuf();
 
 			UINT attributes_len = LIST_NUM(t->attributes);
-			for (UINT attrIndex = 0; attrIndex < attributes_len; ++attrIndex) {
-				IKEv2_TRANSFORM_ATTRIBUTE *attr = (IKEv2_TRANSFORM_ATTRIBUTE*)LIST_DATA(t->attributes, attrIndex);
+			for (UINT attrIndex = 0; attrIndex < attributes_len; ++attrIndex)
+			{
+				IKEv2_TRANSFORM_ATTRIBUTE *attr = (IKEv2_TRANSFORM_ATTRIBUTE *)LIST_DATA(t->attributes, attrIndex);
 				USHORT attrType = attr->type;
-				if (attr->format == 1) {
+				if (attr->format == 1)
+				{
 					attrType |= (USHORT)(1 << 15);
 				}
 
 				WriteBufShort(tpb, attrType);
 				WriteBufShort(tpb, attr->value);
 
-				if (attr->format == 0) {
+				if (attr->format == 0)
+				{
 					WriteBufBuf(tpb, attr->TLV_value);
 				}
 			}
@@ -50,7 +57,7 @@ BUF* ikev2_SA_encode(IKEv2_SA_PAYLOAD *p) {
 
 			//reserve & skip length for now
 			WriteBufChar(tb, (UCHAR)0);
-			WriteBufShort(tb, (USHORT)tpb->Size+8);
+			WriteBufShort(tb, (USHORT)tpb->Size + 8);
 
 			WriteBufChar(tb, t->transform.type);
 			WriteBufChar(tb, (UCHAR)0);
@@ -73,7 +80,8 @@ BUF* ikev2_SA_encode(IKEv2_SA_PAYLOAD *p) {
 		WriteBufChar(pb, prop->protocol_id);
 		WriteBufChar(pb, prop->SPI_size);
 		WriteBufChar(pb, prop->transform_number);
-		if (prop->SPI_size > 0) {
+		if (prop->SPI_size > 0)
+		{
 			WriteBufBuf(pb, prop->SPI);
 		}
 
@@ -86,12 +94,15 @@ BUF* ikev2_SA_encode(IKEv2_SA_PAYLOAD *p) {
 	return b;
 }
 
-UINT ikev2_SA_decode(BUF *b, IKEv2_SA_PAYLOAD *p) {
+UINT ikev2_SA_decode(BUF *b, IKEv2_SA_PAYLOAD *p)
+{
 	p->proposals = NewListFast(NULL);
 	bool isLastProposal = (b->Size == 0) ? true : false;
-	while (!isLastProposal) {
-		IKEv2_SA_PROPOSAL *proposal = (IKEv2_SA_PROPOSAL*)Malloc(sizeof(IKEv2_SA_PROPOSAL));
-		if (proposal == NULL) {
+	while (!isLastProposal)
+	{
+		IKEv2_SA_PROPOSAL *proposal = (IKEv2_SA_PROPOSAL *)Malloc(sizeof(IKEv2_SA_PROPOSAL));
+		if (proposal == NULL)
+		{
 			ikev2_free_SA_payload(p);
 			Dbg("Error while allocate memory for SA_PROPOSAL");
 			return IKEv2_OUT_OF_MEMORY;
@@ -106,18 +117,22 @@ UINT ikev2_SA_decode(BUF *b, IKEv2_SA_PAYLOAD *p) {
 		proposal->protocol_id = ReadBufChar(b);
 		proposal->SPI_size = ReadBufChar(b);
 		proposal->transform_number = ReadBufChar(b);
-		
-		if (proposal->SPI_size > 0) {
+
+		if (proposal->SPI_size > 0)
+		{
 			proposal->SPI = ReadBufFromBuf(b, proposal->SPI_size);
 		}
-		else {
+		else
+		{
 			proposal->SPI = NULL;
 		}
 
 		proposal->transforms = NewListFast(NULL);
-		for (UCHAR i = 0; i < proposal->transform_number; ++i) {
-			IKEv2_SA_TRANSFORM *t = (IKEv2_SA_TRANSFORM*)ZeroMalloc(sizeof(IKEv2_SA_TRANSFORM));
-			if (t == NULL) {
+		for (UCHAR i = 0; i < proposal->transform_number; ++i)
+		{
+			IKEv2_SA_TRANSFORM *t = (IKEv2_SA_TRANSFORM *)ZeroMalloc(sizeof(IKEv2_SA_TRANSFORM));
+			if (t == NULL)
+			{
 				ikev2_free_SA_payload(p);
 				Dbg("Error while allocate memory for SA_TRANSFORM");
 				return IKEv2_OUT_OF_MEMORY;
@@ -132,10 +147,12 @@ UINT ikev2_SA_decode(BUF *b, IKEv2_SA_PAYLOAD *p) {
 			t->transform.ID = ReadBufShort(b);
 
 			t->attributes = NewListFast(NULL);
-			USHORT len = t->transform_length-8;
-			while (len > 0) {
-				IKEv2_TRANSFORM_ATTRIBUTE *attr = (IKEv2_TRANSFORM_ATTRIBUTE*)ZeroMalloc(sizeof(IKEv2_TRANSFORM_ATTRIBUTE));
-				if (attr == NULL) {
+			USHORT len = t->transform_length - 8;
+			while (len > 0)
+			{
+				IKEv2_TRANSFORM_ATTRIBUTE *attr = (IKEv2_TRANSFORM_ATTRIBUTE *)ZeroMalloc(sizeof(IKEv2_TRANSFORM_ATTRIBUTE));
+				if (attr == NULL)
+				{
 					ikev2_free_SA_payload(p);
 					Dbg("Can't allocate memory for TRANSFORM_ATTRIBUTE");
 					return IKEv2_OUT_OF_MEMORY;
@@ -146,37 +163,43 @@ UINT ikev2_SA_decode(BUF *b, IKEv2_SA_PAYLOAD *p) {
 				attr->type = attrType & ((1 << 15) - 1);
 				attr->value = ReadBufShort(b);
 				len -= 4;
-				if (attr->format == 0) {
+				if (attr->format == 0)
+				{
 					attr->TLV_value = ReadBufFromBuf(b, attr->value);
 					len -= attr->TLV_value->Size;
 				}
 
-				Add(t->attributes, (void*)attr);
+				Add(t->attributes, (void *)attr);
 			}
-			if (len != 0) {
+			if (len != 0)
+			{
 				return IKEv2_INVALID_SYNTAX;
 			}
 
-			Add(proposal->transforms, (void*)t);
+			Add(proposal->transforms, (void *)t);
 		}
 
-		Add(p->proposals, (void*)proposal);
+		Add(p->proposals, (void *)proposal);
 		isLastProposal = isLast ^ 2;
 	}
 
-    return IKEv2_NO_ERROR;
+	return IKEv2_NO_ERROR;
 }
 
-void ikev2_free_SA_transform(IKEv2_SA_TRANSFORM *t) {
-	if (t == NULL) {
+void ikev2_free_SA_transform(IKEv2_SA_TRANSFORM *t)
+{
+	if (t == NULL)
+	{
 		return;
 	}
 
 	UINT attrCount = LIST_NUM(t->attributes);
-	for (UINT k = 0; k < attrCount; ++k) {
-		IKEv2_TRANSFORM_ATTRIBUTE* attr = LIST_DATA(t->attributes, k);
+	for (UINT k = 0; k < attrCount; ++k)
+	{
+		IKEv2_TRANSFORM_ATTRIBUTE *attr = LIST_DATA(t->attributes, k);
 
-		if (attr->TLV_value != NULL) {
+		if (attr->TLV_value != NULL)
+		{
 			FreeBuf(attr->TLV_value);
 		}
 		Free(attr);
@@ -187,17 +210,21 @@ void ikev2_free_SA_transform(IKEv2_SA_TRANSFORM *t) {
 	Free(t);
 }
 
-void ikev2_free_SA_payload(IKEv2_SA_PAYLOAD *p) {
-	if (p == NULL) {
+void ikev2_free_SA_payload(IKEv2_SA_PAYLOAD *p)
+{
+	if (p == NULL)
+	{
 		return;
 	}
 
-	for (UINT i = 0; i < LIST_NUM(p->proposals); i++) {
-		IKEv2_SA_PROPOSAL* prop = LIST_DATA(p->proposals, i);
+	for (UINT i = 0; i < LIST_NUM(p->proposals); i++)
+	{
+		IKEv2_SA_PROPOSAL *prop = LIST_DATA(p->proposals, i);
 
 		UINT transformCount = LIST_NUM(prop->transforms);
-		for (UINT j = 0; j < transformCount; ++j) {
-			IKEv2_SA_TRANSFORM* transform = LIST_DATA(prop->transforms, j);
+		for (UINT j = 0; j < transformCount; ++j)
+		{
+			IKEv2_SA_TRANSFORM *transform = LIST_DATA(prop->transforms, j);
 			ikev2_free_SA_transform(transform);
 		}
 
@@ -213,12 +240,14 @@ void ikev2_free_SA_payload(IKEv2_SA_PAYLOAD *p) {
 /*                END SA PAYLOAD                      */
 
 /*                   KE PAYLOAD                       */
-BUF* ikev2_KE_encode(IKEv2_KE_PAYLOAD *p) {
-	if (p == NULL) {
+BUF *ikev2_KE_encode(IKEv2_KE_PAYLOAD *p)
+{
+	if (p == NULL)
+	{
 		return NULL;
 	}
 
-	BUF* b = NewBuf();
+	BUF *b = NewBuf();
 
 	WriteBufShort(b, p->DH_transform_ID);
 	// Offset 2 bytes
@@ -228,10 +257,12 @@ BUF* ikev2_KE_encode(IKEv2_KE_PAYLOAD *p) {
 	return b;
 }
 
-UINT ikev2_KE_decode(BUF *b, IKEv2_KE_PAYLOAD* p) {
+UINT ikev2_KE_decode(BUF *b, IKEv2_KE_PAYLOAD *p)
+{
 	assert(b);
 	// There must be key_data with size >= 1
-	if (b->Size < sizeof(USHORT) * 2 + 1) {
+	if (b->Size < sizeof(USHORT) * 2 + 1)
+	{
 		Debug("KE payload bytes is too short: %d, expected more than 4 bytes\n", b->Size);
 		return IKEv2_INVALID_SYNTAX;
 	}
@@ -242,8 +273,10 @@ UINT ikev2_KE_decode(BUF *b, IKEv2_KE_PAYLOAD* p) {
 	return IKEv2_NO_ERROR;
 }
 
-void ikev2_free_KE_payload(IKEv2_KE_PAYLOAD *p) {
-	if (p == NULL) {
+void ikev2_free_KE_payload(IKEv2_KE_PAYLOAD *p)
+{
+	if (p == NULL)
+	{
 		return;
 	}
 
@@ -253,12 +286,14 @@ void ikev2_free_KE_payload(IKEv2_KE_PAYLOAD *p) {
 /*                 END KE PAYLOAD                     */
 
 /*                   ID PAYLOAD                       */
-BUF* ikev2_ID_encode(IKEv2_ID_PAYLOAD *p) {
-	if (p == NULL) {
+BUF *ikev2_ID_encode(IKEv2_ID_PAYLOAD *p)
+{
+	if (p == NULL)
+	{
 		return NULL;
 	}
 
-	BUF* b = NewBuf();
+	BUF *b = NewBuf();
 
 	WriteBufChar(b, p->ID_type);
 	// Offset 3 bytes
@@ -269,10 +304,12 @@ BUF* ikev2_ID_encode(IKEv2_ID_PAYLOAD *p) {
 	return b;
 }
 
-UINT ikev2_ID_decode(BUF *b, IKEv2_ID_PAYLOAD* p) {
+UINT ikev2_ID_decode(BUF *b, IKEv2_ID_PAYLOAD *p)
+{
 	assert(b);
 
-	if (b->Size < sizeof(USHORT) * 2) {
+	if (b->Size < sizeof(USHORT) * 2)
+	{
 		Debug("ID payload bytes is too short: %d, expected more than 3 bytes\n", b->Size);
 		return IKEv2_INVALID_SYNTAX;
 	}
@@ -286,8 +323,10 @@ UINT ikev2_ID_decode(BUF *b, IKEv2_ID_PAYLOAD* p) {
 	return IKEv2_NO_ERROR;
 }
 
-void ikev2_free_ID_payload(IKEv2_ID_PAYLOAD *p) {
-	if (p == NULL || p->data == NULL) {
+void ikev2_free_ID_payload(IKEv2_ID_PAYLOAD *p)
+{
+	if (p == NULL || p->data == NULL)
+	{
 		return;
 	}
 
@@ -297,12 +336,14 @@ void ikev2_free_ID_payload(IKEv2_ID_PAYLOAD *p) {
 /*                 END ID PAYLOAD                     */
 
 /*                 CERT PAYLOAD                       */
-BUF* ikev2_cert_encode(IKEv2_CERT_PAYLOAD* p) {
-	if (p == NULL) {
+BUF *ikev2_cert_encode(IKEv2_CERT_PAYLOAD *p)
+{
+	if (p == NULL)
+	{
 		return NULL;
 	}
 
-	BUF* b = NewBuf();
+	BUF *b = NewBuf();
 
 	WriteBufChar(b, p->encoding_type);
 	WriteBufBuf(b, p->data);
@@ -310,9 +351,11 @@ BUF* ikev2_cert_encode(IKEv2_CERT_PAYLOAD* p) {
 	return b;
 }
 
-UINT ikev2_cert_decode(BUF* b, IKEv2_CERT_PAYLOAD *p) {
+UINT ikev2_cert_decode(BUF *b, IKEv2_CERT_PAYLOAD *p)
+{
 	assert(b);
-	if (b->Size < sizeof(UCHAR) + 1) {
+	if (b->Size < sizeof(UCHAR) + 1)
+	{
 		return IKEv2_INVALID_SYNTAX;
 	}
 
@@ -322,8 +365,10 @@ UINT ikev2_cert_decode(BUF* b, IKEv2_CERT_PAYLOAD *p) {
 	return IKEv2_NO_ERROR;
 }
 
-void ikev2_free_cert_payload(IKEv2_CERT_PAYLOAD* p) {
-	if (p == NULL) {
+void ikev2_free_cert_payload(IKEv2_CERT_PAYLOAD *p)
+{
+	if (p == NULL)
+	{
 		return;
 	}
 	FreeBuf(p->data);
@@ -332,22 +377,26 @@ void ikev2_free_cert_payload(IKEv2_CERT_PAYLOAD* p) {
 /*               END CERT PAYLOAD                     */
 
 /*                 CERT_REQ PAYLOAD                       */
-BUF* ikev2_cert_req_encode(IKEv2_CERTREQ_PAYLOAD* p) {
-	return ikev2_cert_encode((IKEv2_CERT_PAYLOAD*)p);
+BUF *ikev2_cert_req_encode(IKEv2_CERTREQ_PAYLOAD *p)
+{
+	return ikev2_cert_encode((IKEv2_CERT_PAYLOAD *)p);
 }
 
-UINT ikev2_cert_req_decode(BUF* b, IKEv2_CERTREQ_PAYLOAD *p) {
+UINT ikev2_cert_req_decode(BUF *b, IKEv2_CERTREQ_PAYLOAD *p)
+{
 	return ikev2_cert_decode(b, p);
 }
 
-void ikev2_free_cert_req_payload(IKEv2_CERTREQ_PAYLOAD* p) {
-	ikev2_free_cert_payload((IKEv2_CERT_PAYLOAD*)p);
+void ikev2_free_cert_req_payload(IKEv2_CERTREQ_PAYLOAD *p)
+{
+	ikev2_free_cert_payload((IKEv2_CERT_PAYLOAD *)p);
 }
 /*               END CERT_REQ PAYLOAD                     */
 
 /*                   AUTH PAYLOAD                     */
-BUF* ikev2_auth_encode(IKEv2_AUTH_PAYLOAD *a) {
-	BUF* b = NewBuf();
+BUF *ikev2_auth_encode(IKEv2_AUTH_PAYLOAD *a)
+{
+	BUF *b = NewBuf();
 
 	WriteBufChar(b, a->auth_method);
 	// reserved offset 3 bytes
@@ -359,10 +408,12 @@ BUF* ikev2_auth_encode(IKEv2_AUTH_PAYLOAD *a) {
 	return b;
 }
 
-UINT ikev2_auth_decode(BUF *b, IKEv2_AUTH_PAYLOAD *auth) {
+UINT ikev2_auth_decode(BUF *b, IKEv2_AUTH_PAYLOAD *auth)
+{
 	assert(b);
 
-	if (b->Size < sizeof(UCHAR) + 3) {
+	if (b->Size < sizeof(UCHAR) + 3)
+	{
 		Debug("IKEv2 auth decode error: size of received buffer is %d\n", b->Size);
 		return IKEv2_INVALID_SYNTAX;
 	}
@@ -376,8 +427,10 @@ UINT ikev2_auth_decode(BUF *b, IKEv2_AUTH_PAYLOAD *auth) {
 	return IKEv2_NO_ERROR;
 }
 
-void ikev2_free_auth_payload(IKEv2_AUTH_PAYLOAD *p) {
-	if (p == NULL) {
+void ikev2_free_auth_payload(IKEv2_AUTH_PAYLOAD *p)
+{
+	if (p == NULL)
+	{
 		return;
 	}
 
@@ -387,17 +440,20 @@ void ikev2_free_auth_payload(IKEv2_AUTH_PAYLOAD *p) {
 /*                END AUTH PAYLOAD                    */
 
 /*                NONCE PAYLOAD                       */
-BUF* ikev2_nonce_encode(IKEv2_NONCE_PAYLOAD *p) {
-	BUF * b = NewBuf();
+BUF *ikev2_nonce_encode(IKEv2_NONCE_PAYLOAD *p)
+{
+	BUF *b = NewBuf();
 	WriteBufBuf(b, p->nonce);
 	return b;
 }
 
-UINT ikev2_nonce_decode(BUF *b, IKEv2_NONCE_PAYLOAD *p) {
+UINT ikev2_nonce_decode(BUF *b, IKEv2_NONCE_PAYLOAD *p)
+{
 	// Nonce is more than 16 and less than 256 octets
 	assert(b && p);
 
-	if (b->Size < IKEv2_MIN_NONCE_SIZE || b->Size > IKEv2_MAX_NONCE_SIZE) {
+	if (b->Size < IKEv2_MIN_NONCE_SIZE || b->Size > IKEv2_MAX_NONCE_SIZE)
+	{
 		return IKEv2_INVALID_SYNTAX;
 	}
 
@@ -405,8 +461,10 @@ UINT ikev2_nonce_decode(BUF *b, IKEv2_NONCE_PAYLOAD *p) {
 	return IKEv2_NO_ERROR;
 }
 
-void ikev2_free_nonce_payload(IKEv2_NONCE_PAYLOAD *p) {
-	if (p == NULL) {
+void ikev2_free_nonce_payload(IKEv2_NONCE_PAYLOAD *p)
+{
+	if (p == NULL)
+	{
 		return;
 	}
 
@@ -416,34 +474,39 @@ void ikev2_free_nonce_payload(IKEv2_NONCE_PAYLOAD *p) {
 /*              END NONCE PAYLOAD                     */
 
 /*               NOTIFY PAYLOAD                       */
-BUF* ikev2_notify_encode(IKEv2_NOTIFY_PAYLOAD *p) {
-    assert(p);
+BUF *ikev2_notify_encode(IKEv2_NOTIFY_PAYLOAD *p)
+{
+	assert(p);
 
-    BUF* b = NewBuf();
-    WriteBufChar(b, p->protocol_id);
-    WriteBufChar(b, p->spi_size);
-    WriteBufShort(b, p->notification_type);
-    if (p->spi_size > 0) {
-      WriteBufBuf(b, p->spi);
-    }
+	BUF *b = NewBuf();
+	WriteBufChar(b, p->protocol_id);
+	WriteBufChar(b, p->spi_size);
+	WriteBufShort(b, p->notification_type);
+	if (p->spi_size > 0)
+	{
+		WriteBufBuf(b, p->spi);
+	}
 
-    switch (p->notification_type) {
-        // TODO seems like that is only one payload type with specific processing, figure out
-		case IKEv2_INVALID_KE_PAYLOAD:
-			WriteBufShort(b, ReadBufShort(p->message));
-			break;
-		case IKEv2_NAT_DETECTION_DESTINATION_IP:
-		case IKEv2_NAT_DETECTION_SOURCE_IP:
-        default:
-            WriteBufBuf(b, p->message);
-    }
-    return b;
+	switch (p->notification_type)
+	{
+		// TODO seems like that is only one payload type with specific processing, figure out
+	case IKEv2_INVALID_KE_PAYLOAD:
+		WriteBufShort(b, ReadBufShort(p->message));
+		break;
+	case IKEv2_NAT_DETECTION_DESTINATION_IP:
+	case IKEv2_NAT_DETECTION_SOURCE_IP:
+	default:
+		WriteBufBuf(b, p->message);
+	}
+	return b;
 }
 
-UINT ikev2_notify_decode(BUF *b, IKEv2_NOTIFY_PAYLOAD *p) {
+UINT ikev2_notify_decode(BUF *b, IKEv2_NOTIFY_PAYLOAD *p)
+{
 	assert(b && p);
 
-	if (b->Size < sizeof(USHORT) + 2 * sizeof(UCHAR)) {
+	if (b->Size < sizeof(USHORT) + 2 * sizeof(UCHAR))
+	{
 		return IKEv2_INVALID_SYNTAX;
 	}
 
@@ -453,30 +516,35 @@ UINT ikev2_notify_decode(BUF *b, IKEv2_NOTIFY_PAYLOAD *p) {
 	Dbg("NOTIFY: type = %u", p->notification_type);
 
 	UCHAR offset = 4; // offset of protocol_id, spi_size, notification_type
-	if (b->Size < offset + p->spi_size) {
+	if (b->Size < offset + p->spi_size)
+	{
 		return IKEv2_INVALID_SYNTAX;
 	}
 
 	p->spi = ReadBufFromBuf(b, p->spi_size);
 
 	BUF *data = ReadRemainBuf(b);
-	switch (p->notification_type) {
+	switch (p->notification_type)
+	{
 	case IKEv2_INVALID_KE_PAYLOAD:
-		if (data->Size != 2) {
+		if (data->Size != 2)
+		{
 			Debug("Invalid syntax: NOTIFY_PAYLOAD - INVALID_KE_PAYLOAD\n");
 			return IKEv2_INVALID_SYNTAX;
 		}
 		WriteBufShort(p->message, ReadBufShort(data));
 		break;
 	case IKEv2_COOKIE:
-		if (data->Size == 0 || data->Size > 64) {
+		if (data->Size == 0 || data->Size > 64)
+		{
 			Debug("Invalid syntax: NOTIFY_PAYLOAD - COOKIE wrong size\n");
 			return IKEv2_INVALID_SYNTAX;
 		}
 		p->message = data;
 		break;
 	case IKEv2_SET_WINDOW_SIZE:
-		if (data->Size != 4) {
+		if (data->Size != 4)
+		{
 			Debug("Invalid syntax: NOTIFY_PAYLOAD - SET_WINDOW_SIZE\n");
 			return IKEv2_INVALID_SYNTAX;
 		}
@@ -490,8 +558,10 @@ UINT ikev2_notify_decode(BUF *b, IKEv2_NOTIFY_PAYLOAD *p) {
 	return IKEv2_NO_ERROR;
 }
 
-void ikev2_free_notify_payload(IKEv2_NOTIFY_PAYLOAD *p) {
-	if (p == NULL) {
+void ikev2_free_notify_payload(IKEv2_NOTIFY_PAYLOAD *p)
+{
+	if (p == NULL)
+	{
 		return;
 	}
 
@@ -502,7 +572,8 @@ void ikev2_free_notify_payload(IKEv2_NOTIFY_PAYLOAD *p) {
 /*            END NOTIFY PAYLOAD                      */
 
 /*               DELETE PAYLOAD                       */
-BUF* ikev2_delete_encode(IKEv2_DELETE_PAYLOAD* p) {
+BUF *ikev2_delete_encode(IKEv2_DELETE_PAYLOAD *p)
+{
 	assert(p);
 
 	BUF *b = NewBuf();
@@ -510,17 +581,20 @@ BUF* ikev2_delete_encode(IKEv2_DELETE_PAYLOAD* p) {
 	WriteBufChar(b, p->spi_size);
 	WriteBufShort(b, p->num_spi);
 
-	for (int i = 0; i < p->num_spi; i++) {
+	for (int i = 0; i < p->num_spi; i++)
+	{
 		BUF *spi = LIST_DATA(p->spi_list, i);
 		WriteBuf(b, spi->Buf, spi->Size);
 	}
 	return b;
 }
 
-UINT ikev2_delete_decode(BUF *b, IKEv2_DELETE_PAYLOAD *p) {
+UINT ikev2_delete_decode(BUF *b, IKEv2_DELETE_PAYLOAD *p)
+{
 	assert(b && p);
 
-	if (b->Size < sizeof(UCHAR) * 2 + sizeof(USHORT)) {
+	if (b->Size < sizeof(UCHAR) * 2 + sizeof(USHORT))
+	{
 		return IKEv2_INVALID_SYNTAX;
 	}
 
@@ -528,15 +602,18 @@ UINT ikev2_delete_decode(BUF *b, IKEv2_DELETE_PAYLOAD *p) {
 	p->spi_size = ReadBufChar(b);
 	p->num_spi = ReadBufShort(b);
 
-	if (b->Size < p->spi_size * p->num_spi) {
+	if (b->Size < p->spi_size * p->num_spi)
+	{
 		return IKEv2_INVALID_SYNTAX;
 	}
 
 	bool ok = true;
 	p->spi_list = NewListFast(NULL);
-	for (unsigned int i = 0; i < p->num_spi; i++) {
-		BUF* spi = ReadBufFromBuf(b, p->spi_size);
-		if (spi == NULL) {
+	for (unsigned int i = 0; i < p->num_spi; i++)
+	{
+		BUF *spi = ReadBufFromBuf(b, p->spi_size);
+		if (spi == NULL)
+		{
 			ok = false;
 			break;
 		}
@@ -544,20 +621,25 @@ UINT ikev2_delete_decode(BUF *b, IKEv2_DELETE_PAYLOAD *p) {
 		Add(p->spi_list, spi);
 	}
 
-	if (!ok) {
+	if (!ok)
+	{
 		ikev2_free_delete_payload(p);
 		return IKEv2_INVALID_IKE_SPI;
 	}
 	return IKEv2_NO_ERROR;
 }
 
-void ikev2_free_delete_payload(IKEv2_DELETE_PAYLOAD* p) {
-	if (p == NULL) {
+void ikev2_free_delete_payload(IKEv2_DELETE_PAYLOAD *p)
+{
+	if (p == NULL)
+	{
 		return;
 	}
 
-	if (p->spi_list != NULL) {
-		for (UINT i = 0; i < LIST_NUM(p->spi_list); ++i) {
+	if (p->spi_list != NULL)
+	{
+		for (UINT i = 0; i < LIST_NUM(p->spi_list); ++i)
+		{
 			BUF *spi = LIST_DATA(p->spi_list, i);
 			FreeBuf(spi);
 		}
@@ -571,7 +653,8 @@ void ikev2_free_delete_payload(IKEv2_DELETE_PAYLOAD* p) {
 /*             END DELETE PAYLOAD                     */
 
 /*                   VENDOR PAYLOAD                   */
-BUF* ikev2_vendor_encode(IKEv2_VENDOR_PAYLOAD *p) {
+BUF *ikev2_vendor_encode(IKEv2_VENDOR_PAYLOAD *p)
+{
 	assert(p);
 
 	BUF *b = NewBuf();
@@ -580,13 +663,16 @@ BUF* ikev2_vendor_encode(IKEv2_VENDOR_PAYLOAD *p) {
 	return b;
 }
 
-UINT ikev2_vendor_decode(BUF *b, IKEv2_VENDOR_PAYLOAD *p) {
+UINT ikev2_vendor_decode(BUF *b, IKEv2_VENDOR_PAYLOAD *p)
+{
 	p->VID = CloneBuf(b);
 	return IKEv2_NO_ERROR;
 }
 
-void ikev2_free_vendor_payload(IKEv2_VENDOR_PAYLOAD *p) {
-	if (p == NULL) {
+void ikev2_free_vendor_payload(IKEv2_VENDOR_PAYLOAD *p)
+{
+	if (p == NULL)
+	{
 		return;
 	}
 
@@ -596,7 +682,8 @@ void ikev2_free_vendor_payload(IKEv2_VENDOR_PAYLOAD *p) {
 /*                  END VENDOR PAYLOAD                 */
 
 /*                   TS PAYLOAD                       */
-BUF* ikev2_TS_encode(IKEv2_TS_PAYLOAD *p) {
+BUF *ikev2_TS_encode(IKEv2_TS_PAYLOAD *p)
+{
 	assert(p);
 
 	BUF *b = NewBuf();
@@ -605,32 +692,36 @@ BUF* ikev2_TS_encode(IKEv2_TS_PAYLOAD *p) {
 	WriteBufShort(b, 0);
 	WriteBufChar(b, 0);
 	Dbg("Encoding");
-	for (UINT i = 0; i < p->TS_count; ++i) {
-		IKEv2_TRAFFIC_SELECTOR* selector = (IKEv2_TRAFFIC_SELECTOR*)LIST_DATA(p->selectors, i);
+	for (UINT i = 0; i < p->TS_count; ++i)
+	{
+		IKEv2_TRAFFIC_SELECTOR *selector = (IKEv2_TRAFFIC_SELECTOR *)LIST_DATA(p->selectors, i);
 
 		WriteBufChar(b, selector->type);
 		WriteBufChar(b, selector->IP_protocol_ID);
 		WriteBufShort(b, selector->selector_length);
 		WriteBufShort(b, selector->start_port);
 		WriteBufShort(b, selector->end_port);
-		if (selector->start_address->Size > 0) {
+		if (selector->start_address->Size > 0)
+		{
 			WriteBufBuf(b, selector->start_address);
 		}
-		if (selector->end_address->Size > 0) {
+		if (selector->end_address->Size > 0)
+		{
 			WriteBufBuf(b, selector->end_address);
 		}
 
 		Dbg("TS selector: %u.%u.%u.%u:%u -> %u.%u.%u.%u:%u",
-			((UCHAR*)(selector->start_address->Buf))[0], ((UCHAR*)(selector->start_address->Buf))[1],
-			((UCHAR*)(selector->start_address->Buf))[2], ((UCHAR*)(selector->start_address->Buf))[3], selector->start_port,
-			((UCHAR*)(selector->end_address->Buf))[0], ((UCHAR*)(selector->end_address->Buf))[1],
-			((UCHAR*)(selector->end_address->Buf))[2], ((UCHAR*)(selector->end_address->Buf))[3], selector->end_port);
+			((UCHAR *)(selector->start_address->Buf))[0], ((UCHAR *)(selector->start_address->Buf))[1],
+			((UCHAR *)(selector->start_address->Buf))[2], ((UCHAR *)(selector->start_address->Buf))[3], selector->start_port,
+			((UCHAR *)(selector->end_address->Buf))[0], ((UCHAR *)(selector->end_address->Buf))[1],
+			((UCHAR *)(selector->end_address->Buf))[2], ((UCHAR *)(selector->end_address->Buf))[3], selector->end_port);
 	}
 
 	return b;
 }
 
-UINT ikev2_TS_decode(BUF *b, IKEv2_TS_PAYLOAD *p) {
+UINT ikev2_TS_decode(BUF *b, IKEv2_TS_PAYLOAD *p)
+{
 	p->TS_count = ReadBufChar(b);
 	//skip 3 bytes
 	ReadBufShort(b);
@@ -638,9 +729,11 @@ UINT ikev2_TS_decode(BUF *b, IKEv2_TS_PAYLOAD *p) {
 
 	Dbg("TS count: %u", p->TS_count);
 	p->selectors = NewList(NULL);
-	for (UINT i = 0; i < p->TS_count; ++i) {
-		IKEv2_TRAFFIC_SELECTOR* selector = (IKEv2_TRAFFIC_SELECTOR*)ZeroMalloc(sizeof(IKEv2_TRAFFIC_SELECTOR));
-		if (selector == NULL) {
+	for (UINT i = 0; i < p->TS_count; ++i)
+	{
+		IKEv2_TRAFFIC_SELECTOR *selector = (IKEv2_TRAFFIC_SELECTOR *)ZeroMalloc(sizeof(IKEv2_TRAFFIC_SELECTOR));
+		if (selector == NULL)
+		{
 			ikev2_free_TS_payload(p);
 			Debug("error %d while allocating memory for TRAFFIC_SELECTOR", IKEv2_OUT_OF_MEMORY);
 			return IKEv2_OUT_OF_MEMORY;
@@ -668,18 +761,20 @@ UINT ikev2_TS_decode(BUF *b, IKEv2_TS_PAYLOAD *p) {
 			break;
 		}
 
-		if (addr_size == 0) {
+		if (addr_size == 0)
+		{
 			Free(selector);
 		}
-		else {
+		else
+		{
 			selector->start_address = ReadBufFromBuf(b, addr_size);
 			selector->end_address = ReadBufFromBuf(b, addr_size);
 
-			Dbg("TS selector: %u.%u.%u.%u:%u -> %u.%u.%u.%u:%u", 
-				((UCHAR*)(selector->start_address->Buf))[0], ((UCHAR*)(selector->start_address->Buf))[1],
-				((UCHAR*)(selector->start_address->Buf))[2], ((UCHAR*)(selector->start_address->Buf))[3], selector->start_port,
-				((UCHAR*)(selector->end_address->Buf))[0], ((UCHAR*)(selector->end_address->Buf))[1],
-				((UCHAR*)(selector->end_address->Buf))[2], ((UCHAR*)(selector->end_address->Buf))[3], selector->end_port);
+			Dbg("TS selector: %u.%u.%u.%u:%u -> %u.%u.%u.%u:%u",
+				((UCHAR *)(selector->start_address->Buf))[0], ((UCHAR *)(selector->start_address->Buf))[1],
+				((UCHAR *)(selector->start_address->Buf))[2], ((UCHAR *)(selector->start_address->Buf))[3], selector->start_port,
+				((UCHAR *)(selector->end_address->Buf))[0], ((UCHAR *)(selector->end_address->Buf))[1],
+				((UCHAR *)(selector->end_address->Buf))[2], ((UCHAR *)(selector->end_address->Buf))[3], selector->end_port);
 			Add(p->selectors, selector);
 		}
 	}
@@ -687,13 +782,16 @@ UINT ikev2_TS_decode(BUF *b, IKEv2_TS_PAYLOAD *p) {
 	return IKEv2_NO_ERROR;
 }
 
-void ikev2_free_TS_payload(IKEv2_TS_PAYLOAD *p) {
-	if (p == NULL) {
+void ikev2_free_TS_payload(IKEv2_TS_PAYLOAD *p)
+{
+	if (p == NULL)
+	{
 		return;
 	}
 
-	for (UINT i = 0; i < p->TS_count; ++i) {
-		IKEv2_TRAFFIC_SELECTOR* selector = (IKEv2_TRAFFIC_SELECTOR*)LIST_DATA(p->selectors, i);
+	for (UINT i = 0; i < p->TS_count; ++i)
+	{
+		IKEv2_TRAFFIC_SELECTOR *selector = (IKEv2_TRAFFIC_SELECTOR *)LIST_DATA(p->selectors, i);
 
 		FreeBuf(selector->start_address);
 		FreeBuf(selector->end_address);
@@ -707,7 +805,8 @@ void ikev2_free_TS_payload(IKEv2_TS_PAYLOAD *p) {
 /*                  END TS PAYLOAD                    */
 
 /*                   SK PAYLOAD                       */
-BUF* ikev2_SK_encode(IKEv2_SK_PAYLOAD *p) {
+BUF *ikev2_SK_encode(IKEv2_SK_PAYLOAD *p)
+{
 	BUF *b = NewBuf();
 	WriteBufBuf(b, p->init_vector);
 	WriteBufBuf(b, p->encrypted_payloads); // encrypted info with padding and pad_length is contained in encrypted payloads
@@ -716,8 +815,10 @@ BUF* ikev2_SK_encode(IKEv2_SK_PAYLOAD *p) {
 	return b;
 }
 
-UINT ikev2_SK_decode(BUF *b, IKEv2_SK_PAYLOAD *p) {
-    if (b->Buf == NULL) {
+UINT ikev2_SK_decode(BUF *b, IKEv2_SK_PAYLOAD *p)
+{
+	if (b->Buf == NULL)
+	{
 		return IKEv2_INVALID_SYNTAX;
 	}
 
@@ -733,8 +834,10 @@ UINT ikev2_SK_decode(BUF *b, IKEv2_SK_PAYLOAD *p) {
 	return IKEv2_NO_ERROR;
 }
 
-void ikev2_free_SK_payload(IKEv2_SK_PAYLOAD *p) {
-	if (p == NULL) {
+void ikev2_free_SK_payload(IKEv2_SK_PAYLOAD *p)
+{
+	if (p == NULL)
+	{
 		return;
 	}
 
@@ -749,30 +852,34 @@ void ikev2_free_SK_payload(IKEv2_SK_PAYLOAD *p) {
 /*                  END SK PAYLOAD                    */
 
 /*          CONFIGURATION PAYLOAD                     */
-BUF* ikev2_configuration_encode(IKEv2_CP_PAYLOAD *p) {
-	if (p == NULL) {
+BUF *ikev2_configuration_encode(IKEv2_CP_PAYLOAD *p)
+{
+	if (p == NULL)
+	{
 		return NULL;
 	}
 
-	BUF* b = NewBuf();
+	BUF *b = NewBuf();
 	WriteBufChar(b, p->type);
 	WriteBufChar(b, 0);
 	WriteBufShort(b, (USHORT)0);
 
 	UINT attrCount = LIST_NUM(p->attributes);
-	for (UINT i = 0; i < attrCount; ++i) {
-		IKEv2_CP_ATTR* a = (IKEv2_CP_ATTR*)LIST_DATA(p->attributes, i);
+	for (UINT i = 0; i < attrCount; ++i)
+	{
+		IKEv2_CP_ATTR *a = (IKEv2_CP_ATTR *)LIST_DATA(p->attributes, i);
 
 		BUF *tmp = NewBuf();
-		
+
 		WriteBufShort(tmp, a->type);
 		Dbg("CP type: %u %u %u", a->type, Endian16(a->type), Endian16(a->type) >> 1);
 		WriteBufShort(tmp, a->length);
 
-		if (a->value != NULL) {
+		if (a->value != NULL)
+		{
 			WriteBufBuf(tmp, a->value);
 		}
-		
+
 		WriteBufBuf(b, tmp);
 		FreeBuf(tmp);
 	}
@@ -780,7 +887,8 @@ BUF* ikev2_configuration_encode(IKEv2_CP_PAYLOAD *p) {
 	return b;
 }
 
-UINT ikev2_configuration_decode(BUF *b, IKEv2_CP_PAYLOAD *p) {
+UINT ikev2_configuration_decode(BUF *b, IKEv2_CP_PAYLOAD *p)
+{
 	p->type = ReadBufChar(b);
 	ReadBufChar(b);
 	ReadBufShort(b);
@@ -788,12 +896,14 @@ UINT ikev2_configuration_decode(BUF *b, IKEv2_CP_PAYLOAD *p) {
 	p->attributes = NewList(NULL);
 
 	UINT remains = ReadBufRemainSize(b);
-	if (remains < 4) {
+	if (remains < 4)
+	{
 		return IKEv2_INVALID_SYNTAX;
 	}
 
-	for (UINT i = 0; i < remains;) {
-		IKEv2_CP_ATTR* attr = (IKEv2_CP_ATTR*)ZeroMalloc(sizeof(IKEv2_CP_ATTR));
+	for (UINT i = 0; i < remains;)
+	{
+		IKEv2_CP_ATTR *attr = (IKEv2_CP_ATTR *)ZeroMalloc(sizeof(IKEv2_CP_ATTR));
 
 		attr->type = ReadBufShort(b) & ((1 << 15) - 1);
 		Dbg("CP payload: got attribute of type %u", attr->type);
@@ -803,13 +913,15 @@ UINT ikev2_configuration_decode(BUF *b, IKEv2_CP_PAYLOAD *p) {
 
 		attr->length = ReadBufShort(b);
 		i += 4;
-		if (attr->length > 0) {
+		if (attr->length > 0)
+		{
 			attr->value = ReadBufFromBuf(b, attr->length);
 
 			i += attr->length;
 		}
 
-		if (i > remains) {
+		if (i > remains)
+		{
 			return IKEv2_INVALID_SYNTAX;
 		}
 
@@ -819,14 +931,18 @@ UINT ikev2_configuration_decode(BUF *b, IKEv2_CP_PAYLOAD *p) {
 	return IKEv2_NO_ERROR;
 }
 
-void ikev2_free_configuration_payload(IKEv2_CP_PAYLOAD *p) {
-	if (p == NULL) {
+void ikev2_free_configuration_payload(IKEv2_CP_PAYLOAD *p)
+{
+	if (p == NULL)
+	{
 		return;
 	}
 
-	for (UINT i = 0; i < LIST_NUM(p->attributes); ++i) {
-		IKEv2_CP_ATTR* attr = LIST_DATA(p->attributes, i);
-		if (attr->value != NULL) {
+	for (UINT i = 0; i < LIST_NUM(p->attributes); ++i)
+	{
+		IKEv2_CP_ATTR *attr = LIST_DATA(p->attributes, i);
+		if (attr->value != NULL)
+		{
 			FreeBuf(attr->value);
 		}
 		Free(attr);
@@ -840,8 +956,10 @@ void ikev2_free_configuration_payload(IKEv2_CP_PAYLOAD *p) {
 /*        END CONFIGURATION PAYLOAD                   */
 
 /*                    EAP PAYLOAD                     */
-BUF* ikev2_EAP_encode(IKEv2_EAP_PAYLOAD *p) {
-	if (p == NULL) {
+BUF *ikev2_EAP_encode(IKEv2_EAP_PAYLOAD *p)
+{
+	if (p == NULL)
+	{
 		return NULL;
 	}
 
@@ -849,7 +967,8 @@ BUF* ikev2_EAP_encode(IKEv2_EAP_PAYLOAD *p) {
 	WriteBufChar(b, p->code);
 	WriteBufChar(b, p->identifier);
 	WriteBufShort(b, p->length);
-	if (p->code == 1 || p->code == 2) {
+	if (p->code == 1 || p->code == 2)
+	{
 		WriteBufChar(b, p->type);
 		WriteBufBuf(b, p->type_data);
 	}
@@ -857,8 +976,10 @@ BUF* ikev2_EAP_encode(IKEv2_EAP_PAYLOAD *p) {
 	return b;
 }
 
-UINT ikev2_EAP_decode(BUF *b, IKEv2_EAP_PAYLOAD *p) {
-	if (b == NULL || p == NULL) {
+UINT ikev2_EAP_decode(BUF *b, IKEv2_EAP_PAYLOAD *p)
+{
+	if (b == NULL || p == NULL)
+	{
 		return 1;
 	}
 
@@ -866,7 +987,8 @@ UINT ikev2_EAP_decode(BUF *b, IKEv2_EAP_PAYLOAD *p) {
 	p->identifier = ReadBufChar(b);
 	p->length = ReadBufShort(b);
 
-	if (p->code == 1 || p->code == 2) {
+	if (p->code == 1 || p->code == 2)
+	{
 		p->type = ReadBufChar(b);
 		p->type_data = ReadRemainBuf(b);
 	}
@@ -874,12 +996,15 @@ UINT ikev2_EAP_decode(BUF *b, IKEv2_EAP_PAYLOAD *p) {
 	return IKEv2_NO_ERROR;
 }
 
-void ikev2_free_EAP_payload(IKEv2_EAP_PAYLOAD *p) {
-	if (p == NULL) {
+void ikev2_free_EAP_payload(IKEv2_EAP_PAYLOAD *p)
+{
+	if (p == NULL)
+	{
 		return;
 	}
 
-	if (p->type_data != NULL) {
+	if (p->type_data != NULL)
+	{
 		FreeBuf(p->type_data);
 	}
 
@@ -888,13 +1013,16 @@ void ikev2_free_EAP_payload(IKEv2_EAP_PAYLOAD *p) {
 /*                  END EAP PAYLOAD                    */
 
 /* Helper functions section. */
-IKEv2_SA_TRANSFORM* Ikev2CloneTransform(IKEv2_SA_TRANSFORM* other) {
-	if (other == NULL) {
+IKEv2_SA_TRANSFORM *Ikev2CloneTransform(IKEv2_SA_TRANSFORM *other)
+{
+	if (other == NULL)
+	{
 		return NULL;
 	}
 
-	IKEv2_SA_TRANSFORM* clone = (IKEv2_SA_TRANSFORM*)Malloc(sizeof(IKEv2_SA_TRANSFORM));
-	if (clone == NULL) {
+	IKEv2_SA_TRANSFORM *clone = (IKEv2_SA_TRANSFORM *)Malloc(sizeof(IKEv2_SA_TRANSFORM));
+	if (clone == NULL)
+	{
 		Dbg("error while allocating memory");
 		return NULL;
 	}
@@ -904,28 +1032,32 @@ IKEv2_SA_TRANSFORM* Ikev2CloneTransform(IKEv2_SA_TRANSFORM* other) {
 	clone->transform.ID = other->transform.ID;
 	clone->transform.type = other->transform.type;
 
-	if (other->attributes != NULL) {
+	if (other->attributes != NULL)
+	{
 		clone->attributes = NewList(NULL);
 		UINT attr_count = LIST_NUM(other->attributes);
 
-		for (UINT i = 0; i < attr_count; ++i) {
-			IKEv2_TRANSFORM_ATTRIBUTE* attr = (IKEv2_TRANSFORM_ATTRIBUTE*)Malloc(sizeof(IKEv2_TRANSFORM_ATTRIBUTE));
-			if (clone == NULL) {
+		for (UINT i = 0; i < attr_count; ++i)
+		{
+			IKEv2_TRANSFORM_ATTRIBUTE *attr = (IKEv2_TRANSFORM_ATTRIBUTE *)Malloc(sizeof(IKEv2_TRANSFORM_ATTRIBUTE));
+			if (clone == NULL)
+			{
 				ikev2_free_SA_transform(clone);
 				Dbg("error while allocating memory");
 				return NULL;
 			}
-			IKEv2_TRANSFORM_ATTRIBUTE* oa = (IKEv2_TRANSFORM_ATTRIBUTE*)LIST_DATA(other->attributes, i);
+			IKEv2_TRANSFORM_ATTRIBUTE *oa = (IKEv2_TRANSFORM_ATTRIBUTE *)LIST_DATA(other->attributes, i);
 
 			attr->format = oa->format;
 			attr->type = oa->type;
 			attr->value = oa->value;
 			attr->TLV_value = NULL;
-			if (oa->TLV_value != NULL) {
+			if (oa->TLV_value != NULL)
+			{
 				attr->TLV_value = CloneBuf(oa->TLV_value);
 			}
 
-			Add(clone->attributes, (void*)attr);
+			Add(clone->attributes, (void *)attr);
 		}
 	}
 
@@ -933,70 +1065,82 @@ IKEv2_SA_TRANSFORM* Ikev2CloneTransform(IKEv2_SA_TRANSFORM* other) {
 }
 
 // Returns 0 if error not present
-USHORT Ikev2GetNotificationErrorCode(USHORT notification_type) {
-  switch (notification_type) {
-  case IKEv2_UNSUPPORTED_CRITICAL_PAYLOAD:
-  case IKEv2_INVALID_IKE_SPI:
-  case IKEv2_INVALID_MAJOR_VERSION:
-  case IKEv2_INVALID_SYNTAX:
-  case IKEv2_INVALID_MESSAGE_ID:
-  case IKEv2_INVALID_SPI:
-  case IKEv2_NO_PROPOSAL_CHOSEN:
-  case IKEv2_INVALID_KE_PAYLOAD:
-  case IKEv2_AUTHENTICATION_FAILED:
-  case IKEv2_SINGLE_PAIR_REQUIRED:
-  case IKEv2_NO_ADDITIONAL_SAS:
-  case IKEv2_INTERNAL_ADDRESS_FAILURE:
-  case IKEv2_FAILED_CP_REQUIRED:
-  case IKEv2_TS_UNACCEPTABLE:
-  case IKEv2_INVALID_SELECTORS:
-  case IKEv2_TEMPORARY_FAILURE:
-  case IKEv2_CHILD_SA_NOT_FOUND:
-    return notification_type;
-  default:
-    return IKEv2_NO_ERROR;
-  }
+USHORT Ikev2GetNotificationErrorCode(USHORT notification_type)
+{
+	switch (notification_type)
+	{
+	case IKEv2_UNSUPPORTED_CRITICAL_PAYLOAD:
+	case IKEv2_INVALID_IKE_SPI:
+	case IKEv2_INVALID_MAJOR_VERSION:
+	case IKEv2_INVALID_SYNTAX:
+	case IKEv2_INVALID_MESSAGE_ID:
+	case IKEv2_INVALID_SPI:
+	case IKEv2_NO_PROPOSAL_CHOSEN:
+	case IKEv2_INVALID_KE_PAYLOAD:
+	case IKEv2_AUTHENTICATION_FAILED:
+	case IKEv2_SINGLE_PAIR_REQUIRED:
+	case IKEv2_NO_ADDITIONAL_SAS:
+	case IKEv2_INTERNAL_ADDRESS_FAILURE:
+	case IKEv2_FAILED_CP_REQUIRED:
+	case IKEv2_TS_UNACCEPTABLE:
+	case IKEv2_INVALID_SELECTORS:
+	case IKEv2_TEMPORARY_FAILURE:
+	case IKEv2_CHILD_SA_NOT_FOUND:
+		return notification_type;
+	default:
+		return IKEv2_NO_ERROR;
+	}
 }
 
-BUF* EndianBuf(BUF* b) {
-	if (b == NULL) {
+BUF *EndianBuf(BUF *b)
+{
+	if (b == NULL)
+	{
 		return NULL;
 	}
-	
-	if (b->Size == 1) {
+
+	if (b->Size == 1)
+	{
 		return CloneBuf(b);
 	}
 
 	BUF *bb = NewBuf();
-	for (UINT i = b->Size; i > 0; i--) {
-		WriteBufChar(bb, *((UCHAR*)(b->Buf) + i - 1));
+	for (UINT i = b->Size; i > 0; i--)
+	{
+		WriteBufChar(bb, *((UCHAR *)(b->Buf) + i - 1));
 	}
 
 	return bb;
 }
 
-void Endian(UCHAR* b, UCHAR* bb, UINT size) {
-  if (b == NULL) {
-    return;
-  }
+void Endian(UCHAR *b, UCHAR *bb, UINT size)
+{
+	if (b == NULL)
+	{
+		return;
+	}
 
-  UINT k = 0;
-  for (UINT i = size; i > 0; i--) {
-    *(bb+k) = *(b + i - 1);
-    k++;
-  }
+	UINT k = 0;
+	for (UINT i = size; i > 0; i--)
+	{
+		*(bb + k) = *(b + i - 1);
+		k++;
+	}
 }
 
-void DbgPointer(char* text, void* p, UINT size) {
-  Debug("Pointer %s:", text);
-  UINT si = 0;
-  for (UINT i = 0; i < size; ++i) {
-    if (i % 16 == 0) {
-      Debug("\n\t%4u: ", si);
-      si+=16;
-    }
-    Debug("%02X ", *((UCHAR*)p + i));
-  }
-  Debug("\n");
+void DbgPointer(char *text, void *p, UINT size)
+{
+	Debug("Pointer %s:", text);
+	UINT si = 0;
+	for (UINT i = 0; i < size; ++i)
+	{
+		if (i % 16 == 0)
+		{
+			Debug("\n\t%4u: ", si);
+			si += 16;
+		}
+		Debug("%02X ", *((UCHAR *)p + i));
+	}
+	Debug("\n");
 }
 

@@ -48,29 +48,30 @@
  * responses */
 #define IKEv2_RESPONSE_FLAG   (1 << 5)
 
-/*  Implementations of IKEv2 MUST clear this bit when sending and
- * MUST ignore it in incoming messages. */
+ /*  Implementations of IKEv2 MUST clear this bit when sending and
+  * MUST ignore it in incoming messages. */
 #define IKEv2_VERSION_FLAG    (1 << 4)
 
-/* This bit MUST be set in messages sent by the
- * original initiator of the IKE SA and MUST be cleared in
- * messages sent by the original responder */
+  /* This bit MUST be set in messages sent by the
+   * original initiator of the IKE SA and MUST be cleared in
+   * messages sent by the original responder */
 #define IKEv2_INITIATOR_FLAG  (1 << 3)
 
 
-/* Security Parameter Index(SPI) Each endpoint chooses one of the two
- * SPIs and MUST choose them so as to be unique identifiers of an IKE
- * SA.  An SPI value of zero is SPECIAL: it indicates that the remote
- * SPI value is not yet known by the sender.
- * The SAi1 payload will be static */
+   /* Security Parameter Index(SPI) Each endpoint chooses one of the two
+	* SPIs and MUST choose them so as to be unique identifiers of an IKE
+	* SA.  An SPI value of zero is SPECIAL: it indicates that the remote
+	* SPI value is not yet known by the sender.
+	* The SAi1 payload will be static */
 
 #define IKEv2_HEADER_LENGTH			28
 #define IKEv2_MAX_IKE_MESSAGE_LEN	3000
 
 #pragma pack(push, 1)
 
-// IKE header
-typedef struct IKEv2_HEADER {
+	// IKE header
+typedef struct IKEv2_HEADER
+{
 	UINT64 init_SPI;
 	UINT64 resp_SPI;
 	UCHAR next_payload;
@@ -82,7 +83,8 @@ typedef struct IKEv2_HEADER {
 } IKEv2_HEADER;
 
 // Generic payload header
-typedef struct generic_payload {
+typedef struct generic_payload
+{
 	UCHAR  next_payload;
 	UCHAR  is_critical;
 	USHORT payload_length;
@@ -136,7 +138,8 @@ typedef struct generic_payload {
 #define IKEv2_TRANSFORM_ID_NO_ESN	0
 #define IKEv2_TRANSFORM_ID_ESN		1
 
-typedef struct transform_t {
+typedef struct transform_t
+{
 	UCHAR  type;
 	USHORT ID;
 } transform_t;
@@ -144,14 +147,16 @@ typedef struct transform_t {
 #define IKEv2_ATTRIBUTE_TLV_MAX_LENGTH IKEv2_MAX_IKE_MESSAGE_LEN
 #define IKEv2_ATTRIBUTE_TYPE_KEY_LENGTH 14
 
-typedef struct IKEv2_TRANSFORM_ATTRIBUTE {
+typedef struct IKEv2_TRANSFORM_ATTRIBUTE
+{
 	UCHAR	format; // 0 = TLV, 1 = TV
 	USHORT type;
 	USHORT value;
-	BUF		*TLV_value;
+	BUF *TLV_value;
 } IKEv2_TRANSFORM_ATTRIBUTE;
 
-typedef struct IKEv2_SA_TRANSFORM {
+typedef struct IKEv2_SA_TRANSFORM
+{
 	bool is_last;
 	USHORT transform_length;
 	transform_t transform;
@@ -163,26 +168,29 @@ typedef struct IKEv2_SA_TRANSFORM {
 #define IKEv2_PROPOSAL_PROTOCOL_AH	2
 #define IKEv2_PROPOSAL_PROTOCOL_ESP 3
 
-typedef struct IKEv2_SA_PROPOSAL {
+typedef struct IKEv2_SA_PROPOSAL
+{
 	bool	is_last;
 	USHORT  length;
 	UCHAR	number;
 	UCHAR	protocol_id;
 	UCHAR	SPI_size;
 	UCHAR	transform_number;
-	BUF		*SPI;
-	LIST	*transforms; // LIST of IKEv2_SA_TRANSFORM
+	BUF *SPI;
+	LIST *transforms; // LIST of IKEv2_SA_TRANSFORM
 } IKEv2_SA_PROPOSAL;
 
-typedef struct IKEv2_SA_PAYLOAD {
+typedef struct IKEv2_SA_PAYLOAD
+{
 	LIST *proposals;  // LIST of IKEv2_SA_PROPOSAL
 } IKEv2_SA_PAYLOAD;
 // End of SA Payload
 
 // KE Payload
-typedef struct IKEv2_KE_PAYLOAD {
+typedef struct IKEv2_KE_PAYLOAD
+{
 	USHORT DH_transform_ID;
-	BUF*   key_data;
+	BUF *key_data;
 } IKEv2_KE_PAYLOAD;
 // End of KE Payload
 
@@ -195,9 +203,10 @@ typedef struct IKEv2_KE_PAYLOAD {
 #define IKEv2_DH_ID_DER_ASN1_GN	10
 #define IKEv2_DH_ID_KEY_ID		11
 
-typedef struct IKEv2_ID_PAYLOAD {
+typedef struct IKEv2_ID_PAYLOAD
+{
 	UCHAR ID_type;
-	BUF*   data;
+	BUF *data;
 } IKEv2_ID_PAYLOAD;
 // End of ID Payload
 
@@ -207,9 +216,10 @@ typedef struct IKEv2_ID_PAYLOAD {
 #define IKEv2_HASH_URL_X_509_CERT			12
 #define IKEv2_HASH_URL_X_509_BUNDLE			13
 
-typedef struct IKEv2_CERT_PAYLOAD {
+typedef struct IKEv2_CERT_PAYLOAD
+{
 	UCHAR encoding_type;
-	BUF* data;
+	BUF *data;
 } IKEv2_CERT_PAYLOAD;
 // End of CERT Payload
 
@@ -223,9 +233,10 @@ typedef struct IKEv2_CERT_PAYLOAD IKEv2_CERTREQ_PAYLOAD;
 #define IKEv2_AUTH_SHARED_KEY_MESSAGE_INTEGRITY_CODE   2
 #define IKEv2_AUTH_DSS_DIGITAL_SIGNATURE               3
 
-typedef struct IKEv2_AUTH_PAYLOAD {
+typedef struct IKEv2_AUTH_PAYLOAD
+{
 	UCHAR auth_method;
-	BUF*   data;
+	BUF *data;
 } IKEv2_AUTH_PAYLOAD;
 // End of AUTH Payload
 
@@ -233,8 +244,9 @@ typedef struct IKEv2_AUTH_PAYLOAD {
 #define IKEv2_MIN_NONCE_SIZE 16
 #define IKEv2_MAX_NONCE_SIZE 256
 
-typedef struct IKEv2_NONCE_PAYLOAD {
-	BUF* nonce;
+typedef struct IKEv2_NONCE_PAYLOAD
+{
+	BUF *nonce;
 } IKEv2_NONCE_PAYLOAD;
 // End of NONCE Payload
 
@@ -273,12 +285,13 @@ typedef struct IKEv2_NONCE_PAYLOAD {
 #define IKEv2_ESP_TFC_PADDING_NOT_SUPPORTED	16394
 #define IKEv2_NON_FIRST_FRAGMENTS_ALSO		16395
 
-typedef struct IKEv2_NOTIFY_PAYLOAD {
+typedef struct IKEv2_NOTIFY_PAYLOAD
+{
 	UCHAR  protocol_id;
 	UCHAR  spi_size;
 	USHORT notification_type;
-	BUF*   spi;
-	BUF*   message;
+	BUF *spi;
+	BUF *message;
 } IKEv2_NOTIFY_PAYLOAD;
 // End of NOTIFY Payload
 
@@ -287,17 +300,19 @@ typedef struct IKEv2_NOTIFY_PAYLOAD {
 #define IKEv2_DELETE_PROTO_AH	2
 #define IKEv2_DELETE_PROTO_ESP	3
 
-typedef struct IKEv2_DELETE_PAYLOAD {
+typedef struct IKEv2_DELETE_PAYLOAD
+{
 	UCHAR protocol_id;
 	UCHAR spi_size;
 	USHORT num_spi;
-	LIST* spi_list;
+	LIST *spi_list;
 } IKEv2_DELETE_PAYLOAD;
 // End of DELETE Payload
 
 // VendorID Payload
-typedef struct IKEv2_VENDOR_PAYLOAD {
-	BUF* VID;
+typedef struct IKEv2_VENDOR_PAYLOAD
+{
+	BUF *VID;
 } IKEv2_VENDOR_PAYLOAD;
 // End of VendorID Payload
 
@@ -305,31 +320,34 @@ typedef struct IKEv2_VENDOR_PAYLOAD {
 #define IKEv2_TS_IPV4_ADDR_RANGE 7
 #define IKEv2_TS_IPV6_ADDR_RANGE 8
 
-typedef struct IKEv2_TS_PAYLOAD {
+typedef struct IKEv2_TS_PAYLOAD
+{
 	UCHAR	TS_count;
-	LIST*	selectors; // LIST of IKEv2_TRAFFIC_SELECTOR*
+	LIST *selectors; // LIST of IKEv2_TRAFFIC_SELECTOR*
 } IKEv2_TS_PAYLOAD;
 
-typedef struct IKEv2_TRAFFIC_SELECTOR {
+typedef struct IKEv2_TRAFFIC_SELECTOR
+{
 	UCHAR	type;
 	UCHAR	IP_protocol_ID;
 	USHORT	selector_length;
 	USHORT	start_port;
 	USHORT	end_port;
-	BUF*	start_address;
-	BUF*	end_address;
+	BUF *start_address;
+	BUF *end_address;
 } IKEv2_TRAFFIC_SELECTOR;
 // End of Traffic Selector Payload
 
 // Authenticated & Encrypted payload
-typedef struct IKEv2_SK_PAYLOAD {
-	BUF* raw_data;
-	LIST* decrypted_payloads;
+typedef struct IKEv2_SK_PAYLOAD
+{
+	BUF *raw_data;
+	LIST *decrypted_payloads;
 	BUF *init_vector;
 	BUF *encrypted_payloads;
 	BUF *padding;
 	UCHAR pad_length;
-	BUF * integrity_checksum;
+	BUF *integrity_checksum;
 	UCHAR next_payload;
 	UCHAR integ_len;
 } IKEv2_SK_PAYLOAD;
@@ -355,37 +373,42 @@ typedef struct IKEv2_SK_PAYLOAD {
 #define IKEv2_SUPPORTED_ATTRIBUTES  14 // NO    Multiple of 2
 #define IKEv2_INTERNAL_IP6_SUBNET   15 // YES   17 octets
 
-typedef struct IKEv2_CP_ATTR {
+typedef struct IKEv2_CP_ATTR
+{
 	USHORT type;
 	USHORT length;
 	BUF *value;
 } IKEv2_CP_ATTR;
 
-typedef struct IKEv2_CP_PAYLOAD {
+typedef struct IKEv2_CP_PAYLOAD
+{
 	UCHAR type;
 	LIST *attributes; // LIST of IKEv2_CP_ATTR
 } IKEv2_CP_PAYLOAD;
 // End of CONFIGURATION Payload
 
 // Extensible Authentication Protocol (EAP) payload
-typedef struct IKEv2_EAP_PAYLOAD {
+typedef struct IKEv2_EAP_PAYLOAD
+{
 	UCHAR code;
 	UCHAR identifier;
 	USHORT length;
 	UCHAR type;
-	BUF* type_data;
+	BUF *type_data;
 } IKEv2_EAP_PAYLOAD;
 // End of EAP
 
 // IKE packet payload
-typedef struct IKEv2_PACKET_PAYLOAD {
+typedef struct IKEv2_PACKET_PAYLOAD
+{
 	UCHAR PayloadType; // Payload type
 	BUF *BitArray; // Bit array
 
-	void* data;
+	void *data;
 } IKEv2_PACKET_PAYLOAD;
 
-typedef struct IKEv2_PACKET {
+typedef struct IKEv2_PACKET
+{
 	UINT64 SPIi;			// Initiator SPI
 	UINT64 SPIr;			// Responder SPI
 	UCHAR ExchangeType;		// Exchange type
@@ -396,37 +419,37 @@ typedef struct IKEv2_PACKET {
 	UINT MessageId;			// Message ID
 	LIST *PayloadList;		// Payload list of IKEv2_PACKET_PAYLOAD
 	UINT MessageSize;		// Original size
-	BUF* ByteMsg;			// All byte message in Big Endian 
+	BUF *ByteMsg;			// All byte message in Big Endian 
 } IKEv2_PACKET;
 
 // Encode functions
-BUF* ikev2_SA_encode(IKEv2_SA_PAYLOAD *p);
-BUF* ikev2_KE_encode(IKEv2_KE_PAYLOAD *p);
-BUF* ikev2_ID_encode(IKEv2_ID_PAYLOAD *p);
-BUF* ikev2_cert_encode(IKEv2_CERT_PAYLOAD *p);
-BUF* ikev2_cert_req_encode(IKEv2_CERTREQ_PAYLOAD *p);
-BUF* ikev2_auth_encode(IKEv2_AUTH_PAYLOAD *p);
-BUF* ikev2_nonce_encode(IKEv2_NONCE_PAYLOAD *p);
-BUF* ikev2_notify_encode(IKEv2_NOTIFY_PAYLOAD *p);
-BUF* ikev2_delete_encode(IKEv2_DELETE_PAYLOAD *p);
-BUF* ikev2_vendor_encode(IKEv2_VENDOR_PAYLOAD *p);
-BUF* ikev2_TS_encode(IKEv2_TS_PAYLOAD *p);
-BUF* ikev2_SK_encode(IKEv2_SK_PAYLOAD *p);
-BUF* ikev2_configuration_encode(IKEv2_CP_PAYLOAD *p);
-BUF* ikev2_EAP_encode(IKEv2_EAP_PAYLOAD *p);
+BUF *ikev2_SA_encode(IKEv2_SA_PAYLOAD *p);
+BUF *ikev2_KE_encode(IKEv2_KE_PAYLOAD *p);
+BUF *ikev2_ID_encode(IKEv2_ID_PAYLOAD *p);
+BUF *ikev2_cert_encode(IKEv2_CERT_PAYLOAD *p);
+BUF *ikev2_cert_req_encode(IKEv2_CERTREQ_PAYLOAD *p);
+BUF *ikev2_auth_encode(IKEv2_AUTH_PAYLOAD *p);
+BUF *ikev2_nonce_encode(IKEv2_NONCE_PAYLOAD *p);
+BUF *ikev2_notify_encode(IKEv2_NOTIFY_PAYLOAD *p);
+BUF *ikev2_delete_encode(IKEv2_DELETE_PAYLOAD *p);
+BUF *ikev2_vendor_encode(IKEv2_VENDOR_PAYLOAD *p);
+BUF *ikev2_TS_encode(IKEv2_TS_PAYLOAD *p);
+BUF *ikev2_SK_encode(IKEv2_SK_PAYLOAD *p);
+BUF *ikev2_configuration_encode(IKEv2_CP_PAYLOAD *p);
+BUF *ikev2_EAP_encode(IKEv2_EAP_PAYLOAD *p);
 
 // Decode functions
 UINT ikev2_SA_decode(BUF *b, IKEv2_SA_PAYLOAD *p);
 UINT ikev2_KE_decode(BUF *b, IKEv2_KE_PAYLOAD *p);
-UINT ikev2_ID_decode(BUF* b, IKEv2_ID_PAYLOAD *p);
+UINT ikev2_ID_decode(BUF *b, IKEv2_ID_PAYLOAD *p);
 UINT ikev2_auth_decode(BUF *b, IKEv2_AUTH_PAYLOAD *auth);
 UINT ikev2_cert_decode(BUF *b, IKEv2_CERT_PAYLOAD *p);
 UINT ikev2_cert_req_decode(BUF *b, IKEv2_CERTREQ_PAYLOAD *p);
 UINT ikev2_nonce_decode(BUF *b, IKEv2_NONCE_PAYLOAD *p);
 UINT ikev2_notify_decode(BUF *b, IKEv2_NOTIFY_PAYLOAD *p);
 UINT ikev2_delete_decode(BUF *b, IKEv2_DELETE_PAYLOAD *p);
-UINT ikev2_vendor_decode(BUF* b, IKEv2_VENDOR_PAYLOAD *p);
-UINT ikev2_TS_decode(BUF* b, IKEv2_TS_PAYLOAD *p);
+UINT ikev2_vendor_decode(BUF *b, IKEv2_VENDOR_PAYLOAD *p);
+UINT ikev2_TS_decode(BUF *b, IKEv2_TS_PAYLOAD *p);
 UINT ikev2_SK_decode(BUF *b, IKEv2_SK_PAYLOAD *p);
 UINT ikev2_configuration_decode(BUF *b, IKEv2_CP_PAYLOAD *p);
 UINT ikev2_EAP_decode(BUF *b, IKEv2_EAP_PAYLOAD *p);
@@ -449,9 +472,9 @@ void ikev2_free_EAP_payload(IKEv2_EAP_PAYLOAD *p);
 void ikev2_free_SA_transform(IKEv2_SA_TRANSFORM *t);
 
 // Helper functions
-IKEv2_SA_TRANSFORM* Ikev2CloneTransform(IKEv2_SA_TRANSFORM* other);
+IKEv2_SA_TRANSFORM *Ikev2CloneTransform(IKEv2_SA_TRANSFORM *other);
 USHORT Ikev2GetNotificationErrorCode(USHORT notification_type);
-BUF * EndianBuf(BUF *b);
+BUF *EndianBuf(BUF *b);
 void Endian(UCHAR *b, UCHAR *bb, UINT size);
-void DbgPointer(char* text, void* p, UINT size);
+void DbgPointer(char *text, void *p, UINT size);
 #endif	// IPSEC_IKEv2_PACKET_H
