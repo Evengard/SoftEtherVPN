@@ -4100,6 +4100,12 @@ void Encrypt(CRYPT *c, void *dst, void *src, UINT size)
 }
 
 // 3DES encryption
+void Des3Encrypt(void* dest, void* src, UINT size, DES_KEY* key, void* ivec)
+{
+	Des3Encrypt2(dest, src, size, key->k1, key->k2, key->k3, ivec);
+}
+
+// 3DES encryption
 void Des3Encrypt2(void *dest, void *src, UINT size, DES_KEY_VALUE *k1, DES_KEY_VALUE *k2, DES_KEY_VALUE *k3, void *ivec)
 {
 	UCHAR ivec_copy[DES_IV_SIZE];
@@ -4135,6 +4141,12 @@ void DesEncrypt(void *dest, void *src, UINT size, DES_KEY_VALUE *k, void *ivec)
 		k->KeySchedule,
 		(DES_cblock *)ivec_copy,
 		1);
+}
+
+// 3DES decryption
+void Des3Decrypt(void* dest, void* src, UINT size, DES_KEY* key, void* ivec)
+{
+	Des3Decrypt2(dest, src, size, key->k1, key->k2, key->k3, ivec);
 }
 
 // 3DES decryption
@@ -4239,6 +4251,87 @@ void DesFreeKeyValue(DES_KEY_VALUE *v)
 
 	Free(v->KeySchedule);
 	Free(v);
+}
+
+// Random generation of new DES key element
+DES_KEY_VALUE* DesRandKeyValue()
+{
+	UCHAR key_value[DES_KEY_SIZE];
+
+	DES_random_key((DES_cblock*)key_value);
+
+	return DesNewKeyValue(key_value);
+}
+
+// Generate a random 3DES key
+DES_KEY* Des3RandKey()
+{
+	DES_KEY* k = ZeroMalloc(sizeof(DES_KEY));
+
+	k->k1 = DesRandKeyValue();
+	k->k2 = DesRandKeyValue();
+	k->k3 = DesRandKeyValue();
+
+	return k;
+}
+
+// Generate a random DES key
+DES_KEY* DesRandKey()
+{
+	DES_KEY* k = ZeroMalloc(sizeof(DES_KEY));
+
+	k->k1 = DesRandKeyValue();
+	k->k2 = DesNewKeyValue(k->k1->KeyValue);
+	k->k3 = DesNewKeyValue(k->k1->KeyValue);
+
+	return k;
+}
+
+// Release the 3DES key
+void Des3FreeKey(DES_KEY* k)
+{
+	// Validate arguments
+	if (k == NULL)
+	{
+		return;
+	}
+
+	DesFreeKeyValue(k->k1);
+	DesFreeKeyValue(k->k2);
+	DesFreeKeyValue(k->k3);
+
+	Free(k);
+}
+
+// Release the DES key
+void DesFreeKey(DES_KEY* k)
+{
+	Des3FreeKey(k);
+}
+
+// Create a 3DES key
+DES_KEY* Des3NewKey(void* k1, void* k2, void* k3)
+{
+	DES_KEY* k;
+	// Validate arguments
+	if (k1 == NULL || k2 == NULL || k3 == NULL)
+	{
+		return NULL;
+	}
+
+	k = ZeroMalloc(sizeof(DES_KEY));
+
+	k->k1 = DesNewKeyValue(k1);
+	k->k2 = DesNewKeyValue(k2);
+	k->k3 = DesNewKeyValue(k3);
+
+	return k;
+}
+
+// Create a DES key
+DES_KEY* DesNewKey(void* k1)
+{
+	return Des3NewKey(k1, k1, k1);
 }
 
 // Create a new AES key
