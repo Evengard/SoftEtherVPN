@@ -160,7 +160,7 @@ typedef struct IKEv2_IPSECSA
 	bool isClosed;
 } IKEv2_IPSECSA;
 
-typedef struct IKEv2_SERVER
+struct IKEv2_SERVER
 {
 	LIST *clients;   // LIST of IKEv2_CLIENT
 	LIST *SAs;       // LIST of IKEv2_SA for IKE
@@ -169,7 +169,7 @@ typedef struct IKEv2_SERVER
 	LIST *SendPacketList;        // LIST of UDPPACKET
 	IKEv2_CRYPTO_ENGINE *engine; // Cryptography pre-generated engine
 	IKE_SERVER *ike_server;      // Need to handle: ALL clents, SockEvent, Interrupts.
-} IKEv2_SERVER;
+};
 
 typedef struct IKEv2_NOTIFY_CONTAINER
 {
@@ -198,7 +198,7 @@ typedef struct IKEv2_NOTIFY_CONTAINER
 * PRF = Pseudo Random Function.*/
 
 void Ikev2GetNotifications(IKEv2_NOTIFY_CONTAINER *c, LIST *payloads);
-IKEv2_SERVER *NewIkev2Server(CEDAR *cedar, IPSEC_SERVER *ipsec); // global
+IKEv2_SERVER *NewIkev2Server(CEDAR *cedar, IPSEC_SERVER *ipsec, IKE_SERVER *ike_server); // global
 IKEv2_CRYPTO_ENGINE *CreateIkev2CryptoEngine();
 IKEv2_CLIENT *NewIkev2Client(IP *clientIP, UINT clientPort, IP *serverIP, UINT serverPort);
 IKEv2_SA *Ikev2CreateSA(UINT64 SPIi, UINT64 SPIr, IKEv2_CRYPTO_SETTING *setting, IKEv2_CRYPTO_KEY_DATA *key_data);

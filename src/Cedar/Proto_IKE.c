@@ -13,6 +13,7 @@
 #include "Proto_EtherIP.h"
 #include "Proto_IPsec.h"
 #include "Proto_L2TP.h"
+#include "Proto_IKEv2.h"
 #include "Server.h"
 
 #include "Mayaqua/Memory.h"
@@ -35,6 +36,20 @@ void ProcIKEPacketRecv(IKE_SERVER *ike, UDPPACKET *p)
 
 	if (p->Type == IKE_UDP_TYPE_ISAKMP)
 	{
+		UINT ikeVersion = GetIKEVersion(p);
+		Dbg("Got IKE packet, version = %u\n", ikeVersion);
+		switch (ikeVersion)
+		{
+		case 1:
+			break;
+		case 2:
+			ProcessIKEv2PacketRecv(ike->IkeV2, p);
+			return;
+		default:
+			Dbg("Unknown ike packet, major version %u", ikeVersion);
+			return;
+		}
+
 		// ISAKMP (IKE) packet
 		IKE_PACKET *header;
 
@@ -214,7 +229,7 @@ void IPsecSendPacketByIPsecSaInner(IKE_SERVER *ike, IPSECSA *sa, UCHAR *data, UI
 	Copy(esp + sizeof(UINT) * 2 + sa->TransformSetting.Crypto->BlockSize, data, data_size);
 
 	// Padding
-	for (i = 0;i < size_of_padding;i++)
+	for (i = 0; i < size_of_padding; i++)
 	{
 		esp[sizeof(UINT) * 2 + sa->TransformSetting.Crypto->BlockSize + data_size + i] = (UCHAR)(i + 1);
 	}
@@ -471,7 +486,13 @@ void ProcIPsecEspPacketRecv(IKE_SERVER *ike, UDPPACKET *p)
 		UINT64 resp_cookie = 0;
 		IKE_CLIENT *c = NULL;
 		IKE_CLIENT t;
+		IKEv2_IPSECSA *ikev2_sa = Ikev2FindIPSECSA(ike->IkeV2, spi);
 
+		if (ikev2_sa != NULL)
+		{
+			ProcessIKEv2ESP(ike->IkeV2, p, spi, ikev2_sa, src, src_size);
+			return;
+		}
 
 		Copy(&t.ClientIP, &p->SrcIP, sizeof(IP));
 		t.ClientPort = p->SrcPort;
@@ -563,8 +584,8 @@ void ProcIPsecEspPacketRecv(IKE_SERVER *ike, UDPPACKET *p)
 				{
 					// Check the contents by parsing the IPv4 / IPv6 header in the case of tunnel mode
 					BUF *b = NewBuf();
-					static UCHAR src_mac_dummy[6] = {0, 0, 0, 0, 0, 0, };
-					static UCHAR dst_mac_dummy[6] = {0, 0, 0, 0, 0, 0, };
+					static UCHAR src_mac_dummy[6] = { 0, 0, 0, 0, 0, 0, };
+					static UCHAR dst_mac_dummy[6] = { 0, 0, 0, 0, 0, 0, };
 					USHORT tpid = Endian16(next_header == IKE_PROTOCOL_ID_IPV4 ? MAC_PROTO_IPV4 : MAC_PROTO_IPV6);
 					PKT *pkt;
 
@@ -913,7 +934,7 @@ void IPsecIkeClientSendL2TPPackets(IKE_SERVER *ike, IKE_CLIENT *c, L2TP_SERVER *
 		return;
 	}
 
-	for (i = 0;i < LIST_NUM(l2tp->SendPacketList);i++)
+	for (i = 0; i < LIST_NUM(l2tp->SendPacketList); i++)
 	{
 		UDPPACKET *u = LIST_DATA(l2tp->SendPacketList, i);
 
@@ -1059,7 +1080,7 @@ void IPsecIkeClientSendEtherIPPackets(IKE_SERVER *ike, IKE_CLIENT *c, ETHERIP_SE
 		return;
 	}
 
-	for (i = 0;i < LIST_NUM(s->SendPacketList);i++)
+	for (i = 0; i < LIST_NUM(s->SendPacketList); i++)
 	{
 		BLOCK *b = LIST_DATA(s->SendPacketList, i);
 
@@ -1085,7 +1106,7 @@ void ProcDeletePayload(IKE_SERVER *ike, IKE_CLIENT *c, IKE_PACKET_DELETE_PAYLOAD
 	{
 		UINT i;
 		// Remove the IPsec SA
-		for (i = 0;i < LIST_NUM(d->SpiList);i++)
+		for (i = 0; i < LIST_NUM(d->SpiList); i++)
 		{
 			BUF *b = LIST_DATA(d->SpiList, i);
 
@@ -1100,7 +1121,7 @@ void ProcDeletePayload(IKE_SERVER *ike, IKE_CLIENT *c, IKE_PACKET_DELETE_PAYLOAD
 	{
 		UINT i;
 		// Remove the IKE SA
-		for (i = 0;i < LIST_NUM(d->SpiList);i++)
+		for (i = 0; i < LIST_NUM(d->SpiList); i++)
 		{
 			BUF *b = LIST_DATA(d->SpiList, i);
 
@@ -1414,7 +1435,7 @@ void ProcIkeInformationalExchangePacketRecv(IKE_SERVER *ike, UDPPACKET *p, IKE_P
 						UINT i, num;
 						// Handle the deletion payload
 						num = IkeGetPayloadNum(pr->PayloadList, IKE_PAYLOAD_DELETE);
-						for (i = 0;i < num;i++)
+						for (i = 0; i < num; i++)
 						{
 							IKE_PACKET_PAYLOAD *payload = IkeGetPayload(pr->PayloadList, IKE_PAYLOAD_DELETE, i);
 							IKE_PACKET_DELETE_PAYLOAD *del = &payload->Payload.Delete;
@@ -1423,7 +1444,7 @@ void ProcIkeInformationalExchangePacketRecv(IKE_SERVER *ike, UDPPACKET *p, IKE_P
 						}
 						num = IkeGetPayloadNum(pr->PayloadList, IKE_PAYLOAD_NOTICE);
 						// Handle the notification payload
-						for (i = 0;i < num;i++)
+						for (i = 0; i < num; i++)
 						{
 							IKE_PACKET_PAYLOAD *payload = IkeGetPayload(pr->PayloadList, IKE_PAYLOAD_NOTICE, i);
 							IKE_PACKET_NOTICE_PAYLOAD *n = &payload->Payload.Notice;
@@ -1450,7 +1471,7 @@ void ProcIkeInformationalExchangePacketRecv(IKE_SERVER *ike, UDPPACKET *p, IKE_P
 													// Return the DPD Response (ACK) for the DPD Request
 													SendInformationalExchangePacket(ike, c,
 														IkeNewNoticeDpdPayload(true, init_cookie, resp_cookie,
-														seq_no));
+															seq_no));
 												}
 
 												// Update the status of the IKE SA
@@ -1495,7 +1516,7 @@ UINT GenerateNewMessageId(IKE_SERVER *ike)
 			UINT i;
 			bool ok = true;
 
-			for (i = 0;i < LIST_NUM(ike->IPsecSaList);i++)
+			for (i = 0; i < LIST_NUM(ike->IPsecSaList); i++)
 			{
 				IPSECSA *sa = LIST_DATA(ike->IPsecSaList, i);
 
@@ -2362,7 +2383,7 @@ void ProcIkeQuickModePacketRecv(IKE_SERVER *ike, UDPPACKET *p, IKE_PACKET *heade
 														{
 															UINT i;
 
-															for (i = 0;i < LIST_NUM(ike->IPsecSaList);i++)
+															for (i = 0; i < LIST_NUM(ike->IPsecSaList); i++)
 															{
 																IPSECSA *sa = LIST_DATA(ike->IPsecSaList, i);
 
@@ -2404,12 +2425,12 @@ void ProcIkeQuickModePacketRecv(IKE_SERVER *ike, UDPPACKET *p, IKE_PACKET *heade
 
 // Calculate the KEYMAT
 void IPsecCalcKeymat(IKE_SERVER *ike, IKE_HASH *h, void *dst, UINT dst_size, void *skeyid_d_data, UINT skeyid_d_size, UCHAR protocol, UINT spi, void *rand_init_data, UINT rand_init_size,
-					 void *rand_resp_data, UINT rand_resp_size, void *df_key_data, UINT df_key_size)
+	void *rand_resp_data, UINT rand_resp_size, void *df_key_data, UINT df_key_size)
 {
 	BUF *k;
 	BUF *ret;
 	// Validate arguments
-	if (ike == NULL || dst == NULL || h == NULL || rand_init_data == NULL || rand_resp_data == NULL||
+	if (ike == NULL || dst == NULL || h == NULL || rand_init_data == NULL || rand_resp_data == NULL ||
 		(df_key_size != 0 && df_key_data == NULL))
 	{
 		return;
@@ -2476,7 +2497,7 @@ IPSECSA *SearchIPsecSaByMessageId(IKE_SERVER *ike, IKE_CLIENT *c, UINT message_i
 		return NULL;
 	}
 
-	for (i = 0;i < LIST_NUM(ike->IPsecSaList);i++)
+	for (i = 0; i < LIST_NUM(ike->IPsecSaList); i++)
 	{
 		IPSECSA *sa = LIST_DATA(ike->IPsecSaList, i);
 
@@ -2522,7 +2543,7 @@ IPSECSA *SearchIPsecSaBySpi(IKE_SERVER *ike, IKE_CLIENT *c, UINT spi)
 		return NULL;
 	}
 
-	for (i = 0;i < LIST_NUM(ike->IPsecSaList);i++)
+	for (i = 0; i < LIST_NUM(ike->IPsecSaList); i++)
 	{
 		IPSECSA *sa = LIST_DATA(ike->IPsecSaList, i);
 
@@ -2548,7 +2569,7 @@ IKE_SA *SearchIkeSaByCookie(IKE_SERVER *ike, UINT64 init_cookie, UINT64 resp_coo
 		return NULL;
 	}
 
-	for (i = 0;i < LIST_NUM(ike->IkeSaList);i++)
+	for (i = 0; i < LIST_NUM(ike->IkeSaList); i++)
 	{
 		IKE_SA *sa = LIST_DATA(ike->IkeSaList, i);
 
@@ -2807,7 +2828,7 @@ void ProcIkeAggressiveModePacketRecv(IKE_SERVER *ike, UDPPACKET *p, IKE_PACKET *
 								// Create an IKE SA
 								sa = NewIkeSa(ike, c, header->InitiatorCookie, IKE_SA_AGGRESSIVE_MODE, &setting);
 								Copy(&sa->Caps, &caps, sizeof(IKE_CAPS));
-								sa->State= IKE_SA_AM_STATE_1_SA;
+								sa->State = IKE_SA_AM_STATE_1_SA;
 								Insert(ike->IkeSaList, sa);
 
 								sa->HashSize = sa->TransformSetting.Hash->HashSize;
@@ -3634,8 +3655,7 @@ BUF *IkeExpandKeySize(IKE_HASH *h, void *k, UINT k_size, UINT target_size)
 		WriteBuf(b1, tmp, h->HashSize);
 
 		tmp_size = h->HashSize;
-	}
-	while (b1->Size < target_size);
+	} while (b1->Size < target_size);
 
 	b2 = MemToBuf(b1->Buf, target_size);
 
@@ -3750,7 +3770,7 @@ bool IkeIsVendorIdExists(IKE_PACKET *p, char *str)
 	}
 
 	num = IkeGetPayloadNum(p->PayloadList, IKE_PAYLOAD_VENDOR_ID);
-	for (i = 0;i < num;i++)
+	for (i = 0; i < num; i++)
 	{
 		IKE_PACKET_PAYLOAD *payload = IkeGetPayload(p->PayloadList, IKE_PAYLOAD_VENDOR_ID, i);
 		if (payload == NULL)
@@ -4143,7 +4163,7 @@ IKE_SA *FindIkeSaByEndPointAndInitiatorCookie(IKE_SERVER *ike, IP *client_ip, UI
 		return NULL;
 	}
 
-	for (i = 0;i < LIST_NUM(ike->IkeSaList);i++)
+	for (i = 0; i < LIST_NUM(ike->IkeSaList); i++)
 	{
 		IKE_SA *sa = LIST_DATA(ike->IkeSaList, i);
 		IKE_CLIENT *c;
@@ -4174,7 +4194,7 @@ UINT GetNumberOfIPsecSaOfIkeClient(IKE_SERVER *ike, IKE_CLIENT *c)
 		return 0;
 	}
 
-	for (i = 0;i < LIST_NUM(ike->IPsecSaList);i++)
+	for (i = 0; i < LIST_NUM(ike->IPsecSaList); i++)
 	{
 		IPSECSA *sa = LIST_DATA(ike->IPsecSaList, i);
 
@@ -4197,7 +4217,7 @@ UINT GetNumberOfIkeSaOfIkeClient(IKE_SERVER *ike, IKE_CLIENT *c)
 		return 0;
 	}
 
-	for (i = 0;i < LIST_NUM(ike->IkeSaList);i++)
+	for (i = 0; i < LIST_NUM(ike->IkeSaList); i++)
 	{
 		IKE_SA *sa = LIST_DATA(ike->IkeSaList, i);
 
@@ -4222,7 +4242,7 @@ UINT GetNumberOfIkeClientsFromIP(IKE_SERVER *ike, IP *client_ip)
 
 	num = 0;
 
-	for (i = 0;i < LIST_NUM(ike->ClientList);i++)
+	for (i = 0; i < LIST_NUM(ike->ClientList); i++)
 	{
 		IKE_CLIENT *c = LIST_DATA(ike->ClientList, i);
 
@@ -4317,7 +4337,7 @@ IKE_CLIENT *SearchIkeClientForIkePacket(IKE_SERVER *ike, IP *client_ip, UINT cli
 
 		if (pr->InitiatorCookie != 0 && pr->ResponderCookie != 0)
 		{
-			for (i = 0;i < LIST_NUM(ike->IkeSaList);i++)
+			for (i = 0; i < LIST_NUM(ike->IkeSaList); i++)
 			{
 				IKE_SA *sa = LIST_DATA(ike->IkeSaList, i);
 
@@ -4366,9 +4386,9 @@ IKE_CLIENT *SearchIkeClientForIkePacket(IKE_SERVER *ike, IP *client_ip, UINT cli
 				{
 					ok = true;
 				}
-				else 
+				else
 				{
-					for (i = 0;i < LIST_NUM(ike->IkeSaList);i++)
+					for (i = 0; i < LIST_NUM(ike->IkeSaList); i++)
 					{
 						IKE_SA *sa = LIST_DATA(ike->IkeSaList, i);
 
@@ -4530,7 +4550,7 @@ IKE_CLIENT *SetIkeClientEndpoint(IKE_SERVER *ike, IKE_CLIENT *c, IP *client_ip, 
 	{
 		UINT i;
 		// Merge into this existing IKE_CLIENT since it found
-		for (i = 0;i < LIST_NUM(ike->IkeSaList);i++)
+		for (i = 0; i < LIST_NUM(ike->IkeSaList); i++)
 		{
 			IKE_SA *sa = LIST_DATA(ike->IkeSaList, i);
 
@@ -4539,7 +4559,7 @@ IKE_CLIENT *SetIkeClientEndpoint(IKE_SERVER *ike, IKE_CLIENT *c, IP *client_ip, 
 				sa->IkeClient = cc;
 			}
 		}
-		for (i = 0;i < LIST_NUM(ike->IPsecSaList);i++)
+		for (i = 0; i < LIST_NUM(ike->IPsecSaList); i++)
 		{
 			IPSECSA *sa = LIST_DATA(ike->IPsecSaList, i);
 
@@ -4617,7 +4637,7 @@ bool GetBestTransformSettingForIPsecSa(IKE_SERVER *ike, IKE_PACKET *pr, IPSEC_SA
 
 	// Scan all proposal payloads
 	num = IkeGetPayloadNum(sa->PayloadList, IKE_PAYLOAD_PROPOSAL);
-	for (i = 0;i < num;i++)
+	for (i = 0; i < num; i++)
 	{
 		IKE_PACKET_PAYLOAD *proposal_payload = IkeGetPayload(sa->PayloadList, IKE_PAYLOAD_PROPOSAL, i);
 
@@ -4632,7 +4652,7 @@ bool GetBestTransformSettingForIPsecSa(IKE_SERVER *ike, IKE_PACKET *pr, IPSEC_SA
 				UINT j, num2;
 
 				num2 = IkeGetPayloadNum(proposal->PayloadList, IKE_PAYLOAD_TRANSFORM);
-				for (j = 0;j < num2;j++)
+				for (j = 0; j < num2; j++)
 				{
 					IKE_PACKET_PAYLOAD *transform_payload = IkeGetPayload(proposal->PayloadList, IKE_PAYLOAD_TRANSFORM, j);
 					if (transform_payload != NULL)
@@ -4693,7 +4713,7 @@ bool GetBestTransformSettingForIkeSa(IKE_SERVER *ike, IKE_PACKET *pr, IKE_SA_TRA
 
 	// Scan all proposal payloads
 	num = IkeGetPayloadNum(sa->PayloadList, IKE_PAYLOAD_PROPOSAL);
-	for (i = 0;i < num;i++)
+	for (i = 0; i < num; i++)
 	{
 		IKE_PACKET_PAYLOAD *proposal_payload = IkeGetPayload(sa->PayloadList, IKE_PAYLOAD_PROPOSAL, i);
 
@@ -4708,7 +4728,7 @@ bool GetBestTransformSettingForIkeSa(IKE_SERVER *ike, IKE_PACKET *pr, IKE_SA_TRA
 				UINT j, num2;
 
 				num2 = IkeGetPayloadNum(proposal->PayloadList, IKE_PAYLOAD_TRANSFORM);
-				for (j = 0;j < num2;j++)
+				for (j = 0; j < num2; j++)
 				{
 					IKE_PACKET_PAYLOAD *transform_payload = IkeGetPayload(proposal->PayloadList, IKE_PAYLOAD_TRANSFORM, j);
 					if (transform_payload != NULL)
@@ -4836,7 +4856,7 @@ bool TransformPayloadToTransformSettingForIPsecSa(IKE_SERVER *ike, IKE_PACKET_TR
 	setting->LifeKilobytes = INFINITE;
 	setting->LifeSeconds = INFINITE;
 
-	for (i = 0;i < IkeGetTransformValueNum(transform, IKE_TRANSFORM_VALUE_P2_LIFE_TYPE);i++)
+	for (i = 0; i < IkeGetTransformValueNum(transform, IKE_TRANSFORM_VALUE_P2_LIFE_TYPE); i++)
 	{
 		UINT life_type = IkeGetTransformValue(transform, IKE_TRANSFORM_VALUE_P2_LIFE_TYPE, i);
 
@@ -4940,7 +4960,7 @@ bool TransformPayloadToTransformSettingForIkeSa(IKE_SERVER *ike, IKE_PACKET_TRAN
 	setting->LifeKilobytes = INFINITE;
 	setting->LifeSeconds = INFINITE;
 
-	for (i = 0;i < IkeGetTransformValueNum(transform, IKE_TRANSFORM_VALUE_P1_LIFE_TYPE);i++)
+	for (i = 0; i < IkeGetTransformValueNum(transform, IKE_TRANSFORM_VALUE_P1_LIFE_TYPE); i++)
 	{
 		UINT life_type = IkeGetTransformValue(transform, IKE_TRANSFORM_VALUE_P1_LIFE_TYPE, i);
 
@@ -5010,7 +5030,7 @@ UINT64 GenerateNewResponserCookie(IKE_SERVER *ike)
 
 		c = Rand64();
 
-		for (i = 0;i < LIST_NUM(ike->IkeSaList);i++)
+		for (i = 0; i < LIST_NUM(ike->IkeSaList); i++)
 		{
 			IKE_SA *sa = LIST_DATA(ike->IkeSaList, i);
 
@@ -5057,7 +5077,7 @@ IPSECSA *GetOtherLatestIPsecSa(IKE_SERVER *ike, IPSECSA *sa)
 		return NULL;
 	}
 
-	for (i = 0;i < LIST_NUM(ike->IPsecSaList);i++)
+	for (i = 0; i < LIST_NUM(ike->IPsecSaList); i++)
 	{
 		IPSECSA *sa2 = LIST_DATA(ike->IPsecSaList, i);
 
@@ -5114,7 +5134,7 @@ IKE_SA *GetOtherLatestIkeSa(IKE_SERVER *ike, IKE_SA *sa)
 		return NULL;
 	}
 
-	for (i = 0;i < LIST_NUM(ike->IkeSaList);i++)
+	for (i = 0; i < LIST_NUM(ike->IkeSaList); i++)
 	{
 		IKE_SA *sa2 = LIST_DATA(ike->IkeSaList, i);
 
@@ -5155,7 +5175,7 @@ void PurgeIPsecSa(IKE_SERVER *ike, IPSECSA *sa)
 	other_sa = GetOtherLatestIPsecSa(ike, sa);
 
 	// Rewrite the pairing partner by looking for IPsec SA that are paired
-	for (i = 0;i < LIST_NUM(ike->IPsecSaList);i++)
+	for (i = 0; i < LIST_NUM(ike->IPsecSaList); i++)
 	{
 		IPSECSA *sa2 = LIST_DATA(ike->IPsecSaList, i);
 
@@ -5166,7 +5186,7 @@ void PurgeIPsecSa(IKE_SERVER *ike, IPSECSA *sa)
 	}
 
 	// Rewrite the IKE_CLIENT using this IPsec SA to use alternate
-	for (i = 0;i < LIST_NUM(ike->ClientList);i++)
+	for (i = 0; i < LIST_NUM(ike->ClientList); i++)
 	{
 		IKE_CLIENT *c = LIST_DATA(ike->ClientList, i);
 
@@ -5201,7 +5221,7 @@ void PurgeIkeSa(IKE_SERVER *ike, IKE_SA *sa)
 	// Rewrite to alternative IKE_SA of all IPsec SA that are using this IKE_SA
 	other_sa = GetOtherLatestIkeSa(ike, sa);
 
-	for (i = 0;i < LIST_NUM(ike->IPsecSaList);i++)
+	for (i = 0; i < LIST_NUM(ike->IPsecSaList); i++)
 	{
 		IPSECSA *ipsec_sa = LIST_DATA(ike->IPsecSaList, i);
 
@@ -5226,7 +5246,7 @@ void PurgeIkeSa(IKE_SERVER *ike, IKE_SA *sa)
 	}
 
 	// Substitute the IKE_SA of all IKE_CLIENT that are using this IKE_SA with alternative
-	for (i = 0;i < LIST_NUM(ike->ClientList);i++)
+	for (i = 0; i < LIST_NUM(ike->ClientList); i++)
 	{
 		IKE_CLIENT *c = LIST_DATA(ike->ClientList, i);
 
@@ -5251,7 +5271,7 @@ void PurgeIkeClient(IKE_SERVER *ike, IKE_CLIENT *c)
 	}
 
 	// Delete all of IPsec SA and IKE SA that belong to this IKE Client
-	for (i = 0;i < LIST_NUM(ike->IkeSaList);i++)
+	for (i = 0; i < LIST_NUM(ike->IkeSaList); i++)
 	{
 		IKE_SA *sa = LIST_DATA(ike->IkeSaList, i);
 
@@ -5260,7 +5280,7 @@ void PurgeIkeClient(IKE_SERVER *ike, IKE_CLIENT *c)
 			MarkIkeSaAsDeleted(ike, sa);
 		}
 	}
-	for (i = 0;i < LIST_NUM(ike->IPsecSaList);i++)
+	for (i = 0; i < LIST_NUM(ike->IPsecSaList); i++)
 	{
 		IPSECSA *sa = LIST_DATA(ike->IPsecSaList, i);
 
@@ -5285,7 +5305,7 @@ void PurgeDeletingSAsAndClients(IKE_SERVER *ike)
 		return;
 	}
 
-	for (i = 0;i < LIST_NUM(ike->IkeSaList);i++)
+	for (i = 0; i < LIST_NUM(ike->IkeSaList); i++)
 	{
 		IKE_SA *sa = LIST_DATA(ike->IkeSaList, i);
 		if (sa->Deleting)
@@ -5299,7 +5319,7 @@ void PurgeDeletingSAsAndClients(IKE_SERVER *ike)
 		}
 	}
 
-	for (i = 0;i < LIST_NUM(o);i++)
+	for (i = 0; i < LIST_NUM(o); i++)
 	{
 		IKE_SA *sa = LIST_DATA(o, i);
 
@@ -5310,7 +5330,7 @@ void PurgeDeletingSAsAndClients(IKE_SERVER *ike)
 
 	o = NULL;
 
-	for (i = 0;i < LIST_NUM(ike->IPsecSaList);i++)
+	for (i = 0; i < LIST_NUM(ike->IPsecSaList); i++)
 	{
 		IPSECSA *sa = LIST_DATA(ike->IPsecSaList, i);
 		if (sa->Deleting)
@@ -5324,7 +5344,7 @@ void PurgeDeletingSAsAndClients(IKE_SERVER *ike)
 		}
 	}
 
-	for (i = 0;i < LIST_NUM(o);i++)
+	for (i = 0; i < LIST_NUM(o); i++)
 	{
 		IPSECSA *sa = LIST_DATA(o, i);
 
@@ -5335,7 +5355,7 @@ void PurgeDeletingSAsAndClients(IKE_SERVER *ike)
 
 	o = NULL;
 
-	for (i = 0;i < LIST_NUM(ike->ClientList);i++)
+	for (i = 0; i < LIST_NUM(ike->ClientList); i++)
 	{
 		IKE_CLIENT *c = LIST_DATA(ike->ClientList, i);
 		if (c->Deleting)
@@ -5349,7 +5369,7 @@ void PurgeDeletingSAsAndClients(IKE_SERVER *ike)
 		}
 	}
 
-	for (i = 0;i < LIST_NUM(o);i++)
+	for (i = 0; i < LIST_NUM(o); i++)
 	{
 		IKE_CLIENT *c = LIST_DATA(o, i);
 
@@ -5369,7 +5389,7 @@ void ProcessIKEInterrupts(IKE_SERVER *ike)
 		return;
 	}
 
-	for (i = 0;i < LIST_NUM(ike->ClientList);i++)
+	for (i = 0; i < LIST_NUM(ike->ClientList); i++)
 	{
 		IKE_CLIENT *c = LIST_DATA(ike->ClientList, i);
 
@@ -5382,7 +5402,7 @@ void ProcessIKEInterrupts(IKE_SERVER *ike)
 	}
 
 	// Packet retransmission by scanning all IKE SA
-	for (i = 0;i < LIST_NUM(ike->IkeSaList);i++)
+	for (i = 0; i < LIST_NUM(ike->IkeSaList); i++)
 	{
 		IKE_SA *sa = LIST_DATA(ike->IkeSaList, i);
 
@@ -5438,7 +5458,7 @@ void ProcessIKEInterrupts(IKE_SERVER *ike)
 	}
 
 	// Packet retransmission by scanning all IPsec SA
-	for (i = 0;i < LIST_NUM(ike->IPsecSaList);i++)
+	for (i = 0; i < LIST_NUM(ike->IPsecSaList); i++)
 	{
 		IPSECSA *sa = LIST_DATA(ike->IPsecSaList, i);
 		IKE_CLIENT *c = sa->IkeClient;
@@ -5528,7 +5548,7 @@ void ProcessIKEInterrupts(IKE_SERVER *ike)
 	}
 
 	// IKE_CLIENT scanning process
-	for (i = 0;i < LIST_NUM(ike->ClientList);i++)
+	for (i = 0; i < LIST_NUM(ike->ClientList); i++)
 	{
 		IKE_CLIENT *c = LIST_DATA(ike->ClientList, i);
 		UINT64 tick;
@@ -5656,7 +5676,7 @@ void ProcessIKEInterrupts(IKE_SERVER *ike)
 
 					SendInformationalExchangePacket(ike, c,
 						IkeNewNoticeDpdPayload(false, c->CurrentIkeSa->InitiatorCookie, c->CurrentIkeSa->ResponderCookie,
-						c->DpdSeqNo++));
+							c->DpdSeqNo++));
 				}
 			}
 		}
@@ -5668,8 +5688,7 @@ void ProcessIKEInterrupts(IKE_SERVER *ike)
 
 		// Deletion process
 		PurgeDeletingSAsAndClients(ike);
-	}
-	while (ike->StateHasChanged);
+	} while (ike->StateHasChanged);
 
 	// Maintenance of the thread list
 	MaintainThreadList(ike->ThreadList);
@@ -5802,9 +5821,11 @@ void FreeIKEServer(IKE_SERVER *ike)
 		return;
 	}
 
+	Ikev2FreeServer(ike->IkeV2);
+
 	IPsecLog(ike, NULL, NULL, NULL, "LI_STOPPING");
 
-	for (i = 0;i < LIST_NUM(ike->SendPacketList);i++)
+	for (i = 0; i < LIST_NUM(ike->SendPacketList); i++)
 	{
 		UDPPACKET *udp = LIST_DATA(ike->SendPacketList, i);
 
@@ -5816,7 +5837,7 @@ void FreeIKEServer(IKE_SERVER *ike)
 	Debug("Num of IPsec SAs: %u\n", LIST_NUM(ike->IPsecSaList));
 	IPsecLog(ike, NULL, NULL, NULL, "LI_NUM_IPSEC_SA", LIST_NUM(ike->IPsecSaList));
 
-	for (i = 0;i < LIST_NUM(ike->IPsecSaList);i++)
+	for (i = 0; i < LIST_NUM(ike->IPsecSaList); i++)
 	{
 		IPSECSA *sa = LIST_DATA(ike->IPsecSaList, i);
 
@@ -5828,7 +5849,7 @@ void FreeIKEServer(IKE_SERVER *ike)
 	Debug("Num of IKE SAs: %u\n", LIST_NUM(ike->IkeSaList));
 	IPsecLog(ike, NULL, NULL, NULL, "LI_NUM_IKE_SA", LIST_NUM(ike->IkeSaList));
 
-	for (i = 0;i < LIST_NUM(ike->IkeSaList);i++)
+	for (i = 0; i < LIST_NUM(ike->IkeSaList); i++)
 	{
 		IKE_SA *sa = LIST_DATA(ike->IkeSaList, i);
 
@@ -5840,7 +5861,7 @@ void FreeIKEServer(IKE_SERVER *ike)
 	Debug("Num of IKE_CLIENTs: %u\n", LIST_NUM(ike->ClientList));
 	IPsecLog(ike, NULL, NULL, NULL, "LI_NUM_IKE_CLIENTS", LIST_NUM(ike->ClientList));
 
-	for (i = 0;i < LIST_NUM(ike->ClientList);i++)
+	for (i = 0; i < LIST_NUM(ike->ClientList); i++)
 	{
 		IKE_CLIENT *c = LIST_DATA(ike->ClientList, i);
 
@@ -5895,10 +5916,22 @@ IKE_SERVER *NewIKEServer(CEDAR *cedar, IPSEC_SERVER *ipsec)
 
 	ike->ThreadList = NewThreadList();
 
+	ike->IkeV2 = NewIkev2Server(cedar, ipsec, ike);
+
 	IPsecLog(ike, NULL, NULL, NULL, "LI_START");
 
 	return ike;
 }
 
+UINT GetIKEVersion(UDPPACKET *p)
+{
+	if (p == NULL || p->Size < sizeof(IKE_HEADER))
+	{
+		return 0;
+	}
 
+	IKE_HEADER *header = (IKE_HEADER *)(p->Data);
+
+	return header->Version >> 4;
+}
 

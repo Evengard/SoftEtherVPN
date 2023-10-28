@@ -9,6 +9,7 @@
 
 #include "Hub.h"
 #include "Proto_IKE.h"
+#include "Proto_IKEv2.h"
 #include "Proto_L2TP.h"
 #include "Proto_Win7.h"
 #include "Server.h"
@@ -237,7 +238,7 @@ void IPsecServerUdpPacketRecvProc(UDPLISTENER *u, LIST *packet_list)
 	L2TP_SERVER *l2tp;
 	IKE_SERVER *ike;
 	UINT64 now;
-	static UCHAR zero8[8] = {0, 0, 0, 0, 0, 0, 0, 0, };
+	static UCHAR zero8[8] = { 0, 0, 0, 0, 0, 0, 0, 0, };
 	// Validate arguments
 	if (u == NULL || packet_list == NULL)
 	{
@@ -294,7 +295,7 @@ void IPsecServerUdpPacketRecvProc(UDPLISTENER *u, LIST *packet_list)
 	{
 		{
 			// Process the received packet
-			for (i = 0;i < LIST_NUM(packet_list);i++)
+			for (i = 0; i < LIST_NUM(packet_list); i++)
 			{
 				UDPPACKET *p = LIST_DATA(packet_list, i);
 
@@ -314,7 +315,7 @@ void IPsecServerUdpPacketRecvProc(UDPLISTENER *u, LIST *packet_list)
 	ProcessIKEInterrupts(ike);
 
 	// UDP encapsulation process of IKE server packet scheduled for transmission
-	for (i = 0;i < LIST_NUM(ike->SendPacketList);i++)
+	for (i = 0; i < LIST_NUM(ike->SendPacketList); i++)
 	{
 		UDPPACKET *p = LIST_DATA(ike->SendPacketList, i);
 
@@ -340,9 +341,49 @@ void IPsecServerUdpPacketRecvProc(UDPLISTENER *u, LIST *packet_list)
 		}
 	}
 
+	// Postproc IKEv2 packets
+	for (i = 0; i < LIST_NUM(ike->IkeV2->SendPacketList); ++i)
+	{
+		UDPPACKET *p = LIST_DATA(ike->IkeV2->SendPacketList, i);
+		UCHAR srcip[64], dstip[64];
+		IPToStr(srcip, 64, &p->SrcIP);
+		IPToStr(dstip, 64, &p->DstIP);
+		Debug("[IKEv2] Got packet with type %u, %s:%u -> %s:%u to send, sending\n", p->Type, srcip, p->SrcPort, dstip, p->DestPort);
+		if (p->Type == IKE_UDP_TYPE_ISAKMP && p->SrcPort == IPSEC_PORT_IPSEC_ESP_UDP)
+		{
+			Debug("[IKEv2] Encapsulating IKE packet\n");
+			// Add the Non-ESP Marker
+			void *old_data = p->Data;
+
+			p->Data = AddHead(p->Data, p->Size, zero8, 4);
+			p->Size += 4;
+
+			Free(old_data);
+		}
+		else if (p->Type == IKE_UDP_TYPE_ESP && p->SrcPort == IPSEC_PORT_IPSEC_ISAKMP)
+		{
+			// START RECURSION
+			/*IKEv2_IPSECSA* sa = LIST_DATA(s->Ikev2->ipsec_SAs, 0);
+			sa->param->key_data->sk_ai = sa->param->key_data->sk_ar;
+			sa->param->key_data->aes_key_d = sa->param->key_data->aes_key_e;*/
+			// IPsecProcESPPacketToServer(s->Ike, s->Ikev2, p);
+			Debug("[IKEv2] Encapsulating IKE packet\n");
+			// Add the Non-IKE Marker
+			void *old_data = p->Data;
+
+			p->Data = AddHead(p->Data, p->Size, zero8, 8);
+			p->Size += 8;
+
+			Free(old_data);
+		}
+	}
+
 	// IKE server packet transmission processing
 	UdpListenerSendPackets(u, ike->SendPacketList);
+	UdpListenerSendPackets(u, ike->IkeV2->SendPacketList);
+
 	DeleteAll(ike->SendPacketList);
+	DeleteAll(ike->IkeV2->SendPacketList);
 }
 
 // Get the service list
@@ -403,7 +444,7 @@ void IPsecNormalizeServiceSetting(IPSEC_SERVER *s)
 			{
 				// Select the first Virtual HUB if there is no HUB
 				HUB *h = NULL;
-				
+
 				if (LIST_NUM(c->HubList) >= 1)
 				{
 					h = LIST_DATA(c->HubList, 0);
@@ -640,7 +681,7 @@ void FreeIPsecServer(IPSEC_SERVER *s)
 
 	FreeIKEServer(s->Ike);
 
-	for (i = 0;i < LIST_NUM(s->EtherIPIdList);i++)
+	for (i = 0; i < LIST_NUM(s->EtherIPIdList); i++)
 	{
 		ETHERIP_ID *k = LIST_DATA(s->EtherIPIdList, i);
 

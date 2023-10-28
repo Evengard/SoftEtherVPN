@@ -228,7 +228,7 @@ void Ikev2ClientManageL2TPServer(IKE_SERVER *ike, IKEv2_CLIENT *c)
 
 /* IKEv2 SERVER INITIALIZATION STRUCTURES */
 
-IKEv2_SERVER *NewIkev2Server(CEDAR *cedar, IPSEC_SERVER *ipsec)
+IKEv2_SERVER *NewIkev2Server(CEDAR *cedar, IPSEC_SERVER *ipsec, IKE_SERVER *ike_server)
 {
 	IKEv2_SERVER *server = (IKEv2_SERVER *)Malloc(sizeof(IKEv2_SERVER));
 	if (server == NULL)
@@ -239,7 +239,7 @@ IKEv2_SERVER *NewIkev2Server(CEDAR *cedar, IPSEC_SERVER *ipsec)
 	if (cedar == NULL) Debug("cedar is null\n");
 	if (ipsec == NULL) Debug("ipsec is null\n");
 
-	server->ike_server = NewIKEServer(cedar, ipsec);
+	server->ike_server = ike_server;
 	server->clients = NewList(NULL);
 	server->SAs = NewList(NULL);
 	server->ipsec_SAs = NewList(NULL);
@@ -429,7 +429,7 @@ void Ikev2FreeServer(IKEv2_SERVER *server)
 	ReleaseList(server->SAs);
 
 	Ikev2FreeCryptoEngine(server->engine);
-	FreeIKEServer(server->ike_server);
+	server->ike_server = NULL;
 	Free(server);
 }
 

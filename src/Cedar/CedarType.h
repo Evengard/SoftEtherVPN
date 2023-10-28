@@ -530,6 +530,7 @@ typedef struct ETHERIP_SERVER ETHERIP_SERVER;
 // ==============================================================
 
 typedef struct IKE_SERVER IKE_SERVER;
+typedef struct IKEv2_SERVER IKEv2_SERVER;
 typedef struct IKE_SA IKE_SA;
 typedef struct IKE_SA_TRANSFORM_SETTING IKE_SA_TRANSFORM_SETTING;
 typedef struct IKE_CLIENT IKE_CLIENT;

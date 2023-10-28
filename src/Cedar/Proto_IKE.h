@@ -268,6 +268,8 @@ struct IKE_SERVER
 
 	// Setting data
 	char Secret[MAX_SIZE];						// Pre-shared key
+
+	IKEv2_SERVER *IkeV2;					// IKEv2 server
 };
 
 
@@ -344,7 +346,7 @@ void SendInformationalExchangePacketEx(IKE_SERVER *ike, IKE_CLIENT *c, IKE_PACKE
 void SendDeleteIkeSaPacket(IKE_SERVER *ike, IKE_CLIENT *c, UINT64 init_cookie, UINT64 resp_cookie);
 void SendDeleteIPsecSaPacket(IKE_SERVER *ike, IKE_CLIENT *c, UINT spi);
 void IPsecCalcKeymat(IKE_SERVER *ike, IKE_HASH *h, void *dst, UINT dst_size, void *skeyid_d_data, UINT skeyid_d_size, UCHAR protocol, UINT spi, void *rand_init_data, UINT rand_init_size,
-					 void *rand_resp_data, UINT rand_resp_size, void *df_key_data, UINT df_key_size);
+	void *rand_resp_data, UINT rand_resp_size, void *df_key_data, UINT df_key_size);
 
 void ProcIPsecEspPacketRecv(IKE_SERVER *ike, UDPPACKET *p);
 void ProcIPsecUdpPacketRecv(IKE_SERVER *ike, IKE_CLIENT *c, UCHAR *data, UINT data_size);
@@ -365,6 +367,8 @@ bool IsIPsecSaTunnelMode(IPSECSA *sa);
 void ProcL2TPv3PacketRecv(IKE_SERVER *ike, IKE_CLIENT *c, UCHAR *data, UINT data_size, bool is_tunnel_mode);
 
 IKE_SA *SearchIkeSaByCookie(IKE_SERVER *ike, UINT64 init_cookie, UINT64 resp_cookie);
+
+UINT GetIKEVersion(UDPPACKET *p);
 
 #endif	// PROTO_IKE_H
 
