@@ -260,7 +260,7 @@ IKEv2_CRYPTO_ENGINE *CreateIkev2CryptoEngine()
 
 	IKEv2_ENCR *des, *des3, *rc5, *idea, *cast, *blowfish, *aes_cbc, *aes_ctr;
 	IKEv2_PRF *hmac_md5, *hmac_sha1;
-	IKEv2_INTEG *hmac_md5_96, *hmac_sha1_96, *aes_xcbc_96;
+	IKEv2_INTEG *hmac_md5_96, *hmac_sha1_96, *hmac_sha256_128;
 	IKEv2_DH *dh_768, *dh_1024, *dh_1536, *dh_2048, *dh_3072, *dh_4096, *dh_6144, *dh_8192;
 
 	//Encr
@@ -285,7 +285,7 @@ IKEv2_CRYPTO_ENGINE *CreateIkev2CryptoEngine()
 	//Integ
 	hmac_md5_96 = Ikev2CreateInteg(IKEv2_TRANSFORM_ID_AUTH_HMAC_MD5_96, 16, 12);
 	hmac_sha1_96 = Ikev2CreateInteg(IKEv2_TRANSFORM_ID_AUTH_HMAC_SHA1_96, 20, 12);
-	aes_xcbc_96 = Ikev2CreateInteg(IKEv2_TRANSFORM_ID_AUTH_AES_XCBC_96, 16, 12);
+	hmac_sha256_128 = Ikev2CreateInteg(IKEv2_TRANSFORM_ID_AUTH_HMAC_SHA2_256_128, 32, 16);
 
 	//DH
 	dh_768 = Ikev2CreateDH(IKEv2_TRANSFORM_ID_DH_768, 96);
@@ -311,7 +311,7 @@ IKEv2_CRYPTO_ENGINE *CreateIkev2CryptoEngine()
 
 	ret->ike_integ[IKEv2_TRANSFORM_ID_AUTH_HMAC_MD5_96] = hmac_md5_96;
 	ret->ike_integ[IKEv2_TRANSFORM_ID_AUTH_HMAC_SHA1_96] = hmac_sha1_96;
-	ret->ike_integ[IKEv2_TRANSFORM_ID_AUTH_AES_XCBC_96] = aes_xcbc_96;
+	ret->ike_integ[IKEv2_TRANSFORM_ID_AUTH_HMAC_SHA2_256_128] = hmac_sha256_128;
 
 	ret->ike_dh[IKEv2_TRANSFORM_ID_DH_768] = dh_768;
 	ret->ike_dh[IKEv2_TRANSFORM_ID_DH_1024] = dh_1024;
@@ -1792,7 +1792,7 @@ void ProcessIKEv2AuthExchange(IKEv2_SERVER *ike, IKEv2_PACKET *header, UDPPACKET
 	{
 		if (pEAP != NULL)
 		{
-			Dbg("Got EAP message");
+			Dbg("Got EAP message ABORT!!!");
 			goto end;
 		}
 
@@ -1818,16 +1818,7 @@ void ProcessIKEv2AuthExchange(IKEv2_SERVER *ike, IKEv2_PACKET *header, UDPPACKET
 		//EAP start found
 		if (pAUTHi == NULL)
 		{
-			// EAP is temporally disabled with mock
-			Dbg("EAP: disabled");
-			/* LIST* send_list = NewList(NULL); */
-			IKEv2_PACKET_PAYLOAD *mock = Ikev2CreateNotify(IKEv2_AUTHENTICATION_FAILED, NULL, NewBuf(), false);
-			LIST *to_send = NewListSingle(mock);
-			IKEv2_PACKET *np = Ikev2CreatePacket(SPIi, SPIr, IKEv2_AUTH, true, false, false, packet->MessageId, to_send);
-			Dbg("EAP: Sending packet...");
-			Ikev2SendPacketByAddress(ike, &p->DstIP, p->DestPort, &p->SrcIP, p->SrcPort, np, param);
-			return;
-			// EAP mock end
+
 
 			Dbg("EAP found, let's fuck");
 
@@ -2535,11 +2526,11 @@ bool Ikev2SetSKFromRawData(IKEv2_SK_PAYLOAD *sk, IKEv2_CRYPTO_PARAM *param)
 	UINT integ_size = param->setting->integ->out_size;
 
 	UINT rest_len = raw->Size - encr_block_size - integ_size;
-	if (rest_len <= 0 || (rest_len % encr_block_size) > 0)
+	/*if (rest_len <= 0 || (rest_len % encr_block_size) > 0)
 	{
 		Dbg("SK init: wrong rest len %u, block size %u", rest_len, encr_block_size);
 		return false;
-	}
+	}*/
 
 	sk->init_vector = NewBufFromMemory(raw->Buf, encr_block_size);
 	sk->encrypted_payloads = NewBufFromMemory((UCHAR *)raw->Buf + encr_block_size, rest_len);
@@ -2603,6 +2594,10 @@ IKEv2_PACKET *Ikev2ParsePacket(IKEv2_PACKET *p, void *data, UINT size, IKEv2_CRY
 				else
 				{
 					void *calced_checksum = Ikev2CalcInteg(cparam->setting->integ, cparam->key_data->sk_ai, data, size - cparam->setting->integ->out_size);
+					DbgPointer("CALCED_CHKSUM_DATA", data, size - cparam->setting->integ->out_size);
+					DbgPointer("CALCED_CHKSUM_KEY", cparam->key_data->sk_ai, cparam->setting->integ->key_size);
+					DbgPointer("CALCED_CHKSUM_OURS", calced_checksum, cparam->setting->integ->out_size);
+					DbgPointer("CALCED_CHKSUM_THEIRS", sk->integrity_checksum->Buf, cparam->setting->integ->out_size);
 
 					if (calced_checksum == NULL ||
 						!(sk->integrity_checksum->Size == cparam->setting->integ->out_size &&
@@ -3318,9 +3313,8 @@ bool Ikev2IsValidTransform(IKEv2_CRYPTO_ENGINE *engine, IKEv2_SA_TRANSFORM *tran
 		ok = (transform->transform.ID >= IKEv2_TRANSFORM_ID_PRF_HMAC_MD5 && transform->transform.ID <= IKEv2_TRANSFORM_ID_PRF_HMAC_SHA1) ? true : false;
 		break;
 	case IKEv2_TRANSFORM_TYPE_INTEG:
-		/*ok = ((transform->transform.ID >= IKEv2_TRANSFORM_ID_AUTH_NONE && transform->transform.ID <= IKEv2_TRANSFORM_ID_AUTH_HMAC_SHA1_96) ||
-			(transform->transform.ID == IKEv2_TRANSFORM_ID_AUTH_AES_XCBC_96)) ? true : false;*/
-		ok = (transform->transform.ID >= IKEv2_TRANSFORM_ID_AUTH_NONE && transform->transform.ID <= IKEv2_TRANSFORM_ID_AUTH_HMAC_SHA1_96) ? true : false;
+		ok = ((transform->transform.ID >= IKEv2_TRANSFORM_ID_AUTH_NONE && transform->transform.ID <= IKEv2_TRANSFORM_ID_AUTH_HMAC_SHA1_96) ||
+			(transform->transform.ID == IKEv2_TRANSFORM_ID_AUTH_HMAC_SHA2_256_128)) ? true : false;
 		break;
 	case IKEv2_TRANSFORM_TYPE_DH:
 		ok = ((transform->transform.ID >= IKEv2_TRANSFORM_ID_DH_NONE && transform->transform.ID <= IKEv2_TRANSFORM_ID_DH_1024) ||
@@ -3550,6 +3544,8 @@ IKEv2_PACKET_PAYLOAD *Ikev2ChooseBestIKESA(IKEv2_SERVER *ike, IKEv2_SA_PAYLOAD *
 			LIST *integ = Ikev2GetTransformsByType(ike->engine, proposal, IKEv2_TRANSFORM_TYPE_INTEG);
 			LIST *dh = Ikev2GetTransformsByType(ike->engine, proposal, IKEv2_TRANSFORM_TYPE_DH);
 			LIST *esn = Ikev2GetTransformsByType(ike->engine, proposal, IKEv2_TRANSFORM_TYPE_ESN);
+
+			Dbg("TransformsCount %u %u %u %u %u", LIST_NUM(encr), LIST_NUM(prf), LIST_NUM(integ), LIST_NUM(dh), LIST_NUM(esn));
 
 			//MANDATORY: ENCR, PRF, INTEG, D-H
 			bool mandatory = false;
@@ -4865,7 +4861,11 @@ void *Ikev2CalcInteg(IKEv2_INTEG *integ, void *key, void *text, UINT text_size)
 	case IKEv2_TRANSFORM_ID_AUTH_HMAC_SHA1_96:
 		HMacSha1(ret, key, HMAC_SHA1_96_KEY_SIZE, text, text_size);
 		break;
-	case IKEv2_TRANSFORM_ID_AUTH_AES_XCBC_96:
+	case IKEv2_TRANSFORM_ID_AUTH_HMAC_SHA2_256_128:
+		void *tempDst = ZeroMalloc(SHA256_SIZE);
+		HMacSha256(tempDst, key, integ->key_size, text, text_size);
+		Copy(ret, tempDst, integ->out_size);
+		break;
 	case IKEv2_TRANSFORM_ID_AUTH_NONE:
 		Debug("No specification for this algo: %u", integ->type);
 		break;

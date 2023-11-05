@@ -516,6 +516,7 @@ typedef struct PPP_REQUEST_RESEND PPP_REQUEST_RESEND;
 typedef struct PPP_DELAYED_PACKET PPP_DELAYED_PACKET;
 typedef struct PPP_EAP PPP_EAP;
 typedef struct PPP_EAP_TLS_CONTEXT PPP_EAP_TLS_CONTEXT;
+typedef struct PPP_EAP_SESSION PPP_EAP_SESSION;
 
 
 // ==============================================================

@@ -43,25 +43,25 @@
 #endif
 
 #ifdef _MSC_VER
-	#include <intrin.h> // For __cpuid()
+#include <intrin.h> // For __cpuid()
 #else // _MSC_VER
 
 
 #ifndef SKIP_CPU_FEATURES
-	#include "cpu_features_macros.h"
+#include "cpu_features_macros.h"
 #endif
 
-	#if defined(CPU_FEATURES_ARCH_X86)
-		#include "cpuinfo_x86.h"
-	#elif defined(CPU_FEATURES_ARCH_ARM)
-		#include "cpuinfo_arm.h"
-	#elif defined(CPU_FEATURES_ARCH_AARCH64)
-		#include "cpuinfo_aarch64.h"
-	#elif defined(CPU_FEATURES_ARCH_MIPS)
-		#include "cpuinfo_mips.h"
-	#elif defined(CPU_FEATURES_ARCH_PPC)
-		#include "cpuinfo_ppc.h"
-	#endif
+#if defined(CPU_FEATURES_ARCH_X86)
+#include "cpuinfo_x86.h"
+#elif defined(CPU_FEATURES_ARCH_ARM)
+#include "cpuinfo_arm.h"
+#elif defined(CPU_FEATURES_ARCH_AARCH64)
+#include "cpuinfo_aarch64.h"
+#elif defined(CPU_FEATURES_ARCH_MIPS)
+#include "cpuinfo_mips.h"
+#elif defined(CPU_FEATURES_ARCH_PPC)
+#include "cpuinfo_ppc.h"
+#endif
 #endif // _MSC_VER
 
 // OpenSSL <1.1 Shims
@@ -105,9 +105,9 @@ typedef struct CB_PARAM
 
 // Copied from t1_enc.c of OpenSSL
 void Enc_tls1_P_hash(const EVP_MD *md, const unsigned char *sec, int sec_len,
-				 const unsigned char *seed, int seed_len, unsigned char *out, int olen)
+	const unsigned char *seed, int seed_len, unsigned char *out, int olen)
 {
-	int chunk,n;
+	int chunk, n;
 	unsigned int j;
 	HMAC_CTX *ctx;
 	HMAC_CTX *ctx_tmp;
@@ -125,33 +125,33 @@ void Enc_tls1_P_hash(const EVP_MD *md, const unsigned char *sec, int sec_len,
 	Zero(ctx, sizeof(HMAC_CTX));
 	Zero(ctx_tmp, sizeof(HMAC_CTX));
 #endif
-	chunk=EVP_MD_size(md);
+	chunk = EVP_MD_size(md);
 
-	HMAC_Init_ex(ctx,sec,sec_len,md, NULL);
-	HMAC_Init_ex(ctx_tmp,sec,sec_len,md, NULL);
-	HMAC_Update(ctx,seed,seed_len);
-	HMAC_Final(ctx,A1,&A1_len);
+	HMAC_Init_ex(ctx, sec, sec_len, md, NULL);
+	HMAC_Init_ex(ctx_tmp, sec, sec_len, md, NULL);
+	HMAC_Update(ctx, seed, seed_len);
+	HMAC_Final(ctx, A1, &A1_len);
 
-	n=0;
+	n = 0;
 	for (;;)
 	{
-		HMAC_Init_ex(ctx,NULL,0,NULL,NULL); /* re-init */
-		HMAC_Init_ex(ctx_tmp,NULL,0,NULL,NULL); /* re-init */
-		HMAC_Update(ctx,A1,A1_len);
-		HMAC_Update(ctx_tmp,A1,A1_len);
-		HMAC_Update(ctx,seed,seed_len);
+		HMAC_Init_ex(ctx, NULL, 0, NULL, NULL); /* re-init */
+		HMAC_Init_ex(ctx_tmp, NULL, 0, NULL, NULL); /* re-init */
+		HMAC_Update(ctx, A1, A1_len);
+		HMAC_Update(ctx_tmp, A1, A1_len);
+		HMAC_Update(ctx, seed, seed_len);
 
 		if (olen > chunk)
 		{
-			HMAC_Final(ctx,out,&j);
-			out+=j;
-			olen-=j;
-			HMAC_Final(ctx_tmp,A1,&A1_len); /* calc the next A1 value */
+			HMAC_Final(ctx, out, &j);
+			out += j;
+			olen -= j;
+			HMAC_Final(ctx_tmp, A1, &A1_len); /* calc the next A1 value */
 		}
 		else	/* last one */
 		{
-			HMAC_Final(ctx,A1,&A1_len);
-			memcpy(out,A1,olen);
+			HMAC_Final(ctx, A1, &A1_len);
+			memcpy(out, A1, olen);
 			break;
 		}
 	}
@@ -162,33 +162,33 @@ void Enc_tls1_P_hash(const EVP_MD *md, const unsigned char *sec, int sec_len,
 	HMAC_CTX_cleanup(ctx);
 	HMAC_CTX_cleanup(ctx_tmp);
 #endif
-	Zero (A1, sizeof(A1));
+	Zero(A1, sizeof(A1));
 }
 
 void Enc_tls1_PRF(unsigned char *label, int label_len, const unsigned char *sec,
-				  int slen, unsigned char *out1, int olen)
+	int slen, unsigned char *out1, int olen)
 {
 	const EVP_MD *md5 = EVP_md5();
 	const EVP_MD *sha1 = EVP_sha1();
-	int len,i;
-	const unsigned char *S1,*S2;
+	int len, i;
+	const unsigned char *S1, *S2;
 	unsigned char *out2;
 
-	out2 = (unsigned char *) Malloc (olen);
+	out2 = (unsigned char *)Malloc(olen);
 
-	len=slen/2;
-	S1=sec;
-	S2= &(sec[len]);
-	len+=(slen&1); /* add for odd, make longer */
+	len = slen / 2;
+	S1 = sec;
+	S2 = &(sec[len]);
+	len += (slen & 1); /* add for odd, make longer */
 
 
-	Enc_tls1_P_hash(md5 ,S1,len,label,label_len,out1,olen);
-	Enc_tls1_P_hash(sha1,S2,len,label,label_len,out2,olen);
+	Enc_tls1_P_hash(md5, S1, len, label, label_len, out1, olen);
+	Enc_tls1_P_hash(sha1, S2, len, label, label_len, out2, olen);
 
-	for (i=0; i<olen; i++)
-		out1[i]^=out2[i];
+	for (i = 0; i < olen; i++)
+		out1[i] ^= out2[i];
 
-	memset (out2, 0, olen);
+	memset(out2, 0, olen);
 	Free(out2);
 }
 
@@ -225,7 +225,8 @@ void Sha(UINT sha_type, void *dst, void *src, UINT size)
 		return;
 	}
 
-	switch(sha_type) {
+	switch (sha_type)
+	{
 	case SHA1_160:
 		SHA1(src, size, dst);
 		break;
@@ -287,6 +288,11 @@ UINT HMacMd5(void *dst, void *key, UINT key_size, void *src, UINT src_size)
 UINT HMacSha1(void *dst, void *key, UINT key_size, void *src, UINT src_size)
 {
 	return Internal_HMac(EVP_sha1(), dst, key, key_size, src, src_size);
+}
+
+UINT HMacSha256(void *dst, void *key, UINT key_size, void *src, UINT src_size)
+{
+	return Internal_HMac(EVP_sha256(), dst, key, key_size, src, src_size);
 }
 
 // Creating a message digest object
@@ -803,7 +809,7 @@ void OpenSSL_InitLock()
 	// Initialization of the lock object
 	ssl_lock_num = CRYPTO_num_locks();
 	ssl_lock_obj = Malloc(sizeof(LOCK *) * ssl_lock_num);
-	for (i = 0;i < ssl_lock_num;i++)
+	for (i = 0; i < ssl_lock_num; i++)
 	{
 		ssl_lock_obj[i] = NewLock();
 	}
@@ -820,7 +826,7 @@ void OpenSSL_FreeLock()
 #if OPENSSL_VERSION_NUMBER < 0x10100000L || defined(LIBRESSL_VERSION_NUMBER)
 	UINT i;
 
-	for (i = 0;i < ssl_lock_num;i++)
+	for (i = 0; i < ssl_lock_num; i++)
 	{
 		DeleteLock(ssl_lock_obj[i]);
 	}
@@ -1108,7 +1114,7 @@ LIST *CloneXList(LIST *chain)
 	LockList(chain);
 	{
 		UINT i;
-		for (i = 0;i < LIST_NUM(chain);i++)
+		for (i = 0; i < LIST_NUM(chain); i++)
 		{
 			x = LIST_DATA(chain, i);
 			b = XToBuf(x, false);
@@ -1259,7 +1265,8 @@ bool ParseP12Ex(P12 *p12, X **x, K **k, LIST **cc, char *password)
 
 	LIST *chain = NewList(NULL);
 	X *x1;
-	while (sk_X509_num(sk)) {
+	while (sk_X509_num(sk))
+	{
 		x509 = sk_X509_shift(sk);
 		x1 = X509ToX(x509);
 		if (x1 != NULL)
@@ -1504,7 +1511,7 @@ X_SERIAL *NewXSerial(void *data, UINT size)
 		return NULL;
 	}
 
-	for (i = 0;i < size;i++)
+	for (i = 0; i < size; i++)
 	{
 		if (buf[i] != 0)
 		{
@@ -1806,7 +1813,7 @@ X509 *NewX509(K *pub, K *priv, X *ca, NAME *name, UINT days, X_SERIAL *serial)
 	X509_EXTENSION_free(ex);
 */
 
-	// Basic usage
+// Basic usage
 	busage = NewBasicKeyUsageForX509();
 	if (busage != NULL)
 	{
@@ -1829,7 +1836,7 @@ X509 *NewX509(K *pub, K *priv, X *ca, NAME *name, UINT days, X_SERIAL *serial)
 
 		Format(alt_dns, sizeof(alt_dns), "DNS.1:%S", name->CommonName);
 
-		ex = X509V3_EXT_conf_nid(NULL, NULL, NID_subject_alt_name,	alt_dns);
+		ex = X509V3_EXT_conf_nid(NULL, NULL, NID_subject_alt_name, alt_dns);
 		X509_add_ext(x509, ex, -1);
 		X509_EXTENSION_free(ex);
 	}
@@ -1943,7 +1950,7 @@ X509 *NewRootX509(K *pub, K *priv, NAME *name, UINT days, X_SERIAL *serial)
 	}
 
 	// Extensions
-	ex = X509V3_EXT_conf_nid(NULL, NULL, NID_basic_constraints,	"critical,CA:TRUE");
+	ex = X509V3_EXT_conf_nid(NULL, NULL, NID_basic_constraints, "critical,CA:TRUE");
 	X509_add_ext(x509, ex, -1);
 	X509_EXTENSION_free(ex);
 
@@ -2060,7 +2067,7 @@ void FreeX509Name(void *xn)
 
 // Creating the NAME
 NAME *NewName(wchar_t *common_name, wchar_t *organization, wchar_t *unit,
-			  wchar_t *country, wchar_t *state, wchar_t *local)
+	wchar_t *country, wchar_t *state, wchar_t *local)
 {
 	NAME *nm = ZeroMalloc(sizeof(NAME));
 
@@ -2239,7 +2246,7 @@ bool Asn1TimeToSystem(SYSTEMTIME *s, void *asn1_time)
 // Convert the string to the system time
 bool StrToSystem(SYSTEMTIME *s, char *str)
 {
-	char century[3] = {0, 0, 0};
+	char century[3] = { 0, 0, 0 };
 	bool fourdigityear = false;
 
 	// Validate arguments
@@ -2268,12 +2275,12 @@ bool StrToSystem(SYSTEMTIME *s, char *str)
 
 	// Conversion
 	{
-		char year[3] = {str[0], str[1], 0},
-			month[3] = {str[2], str[3], 0},
-			day[3] = {str[4], str[5], 0},
-			hour[3] = {str[6], str[7], 0},
-			minute[3] = {str[8], str[9], 0},
-			second[3] = {str[10], str[11], 0};
+		char year[3] = { str[0], str[1], 0 },
+			month[3] = { str[2], str[3], 0 },
+			day[3] = { str[4], str[5], 0 },
+			hour[3] = { str[6], str[7], 0 },
+			minute[3] = { str[8], str[9], 0 },
+			second[3] = { str[10], str[11], 0 };
 		Zero(s, sizeof(SYSTEMTIME));
 		s->wYear = ToInt(year);
 		if (fourdigityear)
@@ -2421,7 +2428,7 @@ bool RsaCheckEx()
 	UINT num = 20;
 	UINT i;
 
-	for (i = 0;i < num;i++)
+	for (i = 0; i < num; i++)
 	{
 		if (RsaCheck())
 		{
@@ -2829,7 +2836,7 @@ wchar_t *GetUniStrFromX509Name(void *xn, int nid)
 	}
 
 	size = UniStrLen((wchar_t *)txt) * 4 + 8;
-	for (i = 0;i < size;i++)
+	for (i = 0; i < size; i++)
 	{
 		if (txt[i] >= 0x80)
 		{
@@ -3144,7 +3151,7 @@ bool IsBase64(BUF *b)
 		return true;
 	}
 
-	for (i = 0;i < b->Size;i++)
+	for (i = 0; i < b->Size; i++)
 	{
 		char c = ((char *)b->Buf)[i];
 		bool b = false;
@@ -3215,20 +3222,20 @@ bool IsEncryptedK(BUF *b, bool private_key)
 K *OpensslEngineToK(char *key_file_name, char *engine_name)
 {
 #ifndef OPENSSL_NO_ENGINE
-    K *k;
+	K *k;
 #if OPENSSL_API_COMPAT < 0x10100000L
-    ENGINE_load_dynamic();
+	ENGINE_load_dynamic();
 #endif	// OPENSSL_API_COMPAT < 0x10100000L
-    ENGINE *engine = ENGINE_by_id(engine_name);
-    ENGINE_init(engine);
-    EVP_PKEY *pkey;
-    pkey = ENGINE_load_private_key(engine, key_file_name, NULL, NULL);
-   	k = ZeroMalloc(sizeof(K));
-    k->pkey = pkey;
-    k->private_key = true;
-    return k;
+	ENGINE *engine = ENGINE_by_id(engine_name);
+	ENGINE_init(engine);
+	EVP_PKEY *pkey;
+	pkey = ENGINE_load_private_key(engine, key_file_name, NULL, NULL);
+	k = ZeroMalloc(sizeof(K));
+	k->pkey = pkey;
+	k->private_key = true;
+	return k;
 #else
-    return NULL;
+	return NULL;
 #endif
 }
 
@@ -3750,17 +3757,17 @@ X *X509ToX(X509 *x509)
 	type = EVP_PKEY_base_id(k->pkey);
 
 	FreeBuf(b);
-	
+
 	//Fixed to get actual RSA key bits
 	x->bits = EVP_PKEY_bits(k->pkey);
-	
+
 	FreeK(k);
 
 	if (type == EVP_PKEY_RSA)
 	{
 		x->is_compatible_bit = true;
 
-		if(x->bits != 1024 && x->bits != 1536 && x->bits != 2048 && x->bits != 3072 && x->bits != 4096)
+		if (x->bits != 1024 && x->bits != 1536 && x->bits != 2048 && x->bits != 3072 && x->bits != 4096)
 		{
 			x->is_compatible_bit = false;
 		}
@@ -3768,7 +3775,7 @@ X *X509ToX(X509 *x509)
 		{
 			x->is_compatible_bit = true;
 		}
-		
+
 		/*switch (size)
 		{
 		case 162:
@@ -3941,7 +3948,7 @@ void FreeCryptLibrary()
 
 	DeleteLock(openssl_lock);
 	openssl_lock = NULL;
-//	RAND_Free_For_SoftEther();
+	//	RAND_Free_For_SoftEther();
 	OpenSSL_FreeLock();
 #if OPENSSL_VERSION_NUMBER < 0x10100000L || defined(LIBRESSL_VERSION_NUMBER)
 #ifdef OPENSSL_FIPS
@@ -3983,7 +3990,7 @@ void InitCryptLibrary()
 	char tmp[16];
 
 #if OPENSSL_VERSION_NUMBER < 0x10100000L || defined(LIBRESSL_VERSION_NUMBER)
-//	RAND_Init_For_SoftEther()
+	//	RAND_Init_For_SoftEther()
 	openssl_lock = NewLock();
 	SSL_library_init();
 	//OpenSSL_add_all_algorithms();
@@ -4015,7 +4022,7 @@ void InitCryptLibrary()
 				BUF *b;
 				UINT i;
 				b = NewBuf();
-				for (i = 0;i < 4096;i++)
+				for (i = 0; i < 4096; i++)
 				{
 					UCHAR c = rand() % 256;
 					WriteBuf(b, &c, 1);
@@ -4039,7 +4046,7 @@ void InitCryptLibrary()
 	RAND_poll();
 
 #ifdef	OS_WIN32
-//	RAND_screen();
+	//	RAND_screen();
 #endif
 	Rand(tmp, sizeof(tmp));
 	OpenSSL_InitLock();
@@ -4100,7 +4107,7 @@ void Encrypt(CRYPT *c, void *dst, void *src, UINT size)
 }
 
 // 3DES encryption
-void Des3Encrypt(void* dest, void* src, UINT size, DES_KEY* key, void* ivec)
+void Des3Encrypt(void *dest, void *src, UINT size, DES_KEY *key, void *ivec)
 {
 	Des3Encrypt2(dest, src, size, key->k1, key->k2, key->k3, ivec);
 }
@@ -4144,7 +4151,7 @@ void DesEncrypt(void *dest, void *src, UINT size, DES_KEY_VALUE *k, void *ivec)
 }
 
 // 3DES decryption
-void Des3Decrypt(void* dest, void* src, UINT size, DES_KEY* key, void* ivec)
+void Des3Decrypt(void *dest, void *src, UINT size, DES_KEY *key, void *ivec)
 {
 	Des3Decrypt2(dest, src, size, key->k1, key->k2, key->k3, ivec);
 }
@@ -4193,7 +4200,7 @@ void DesEcbEncrypt(void *dst, void *src, void *key_7bytes)
 	key[4] = (unsigned char)(((key_56[3] << 4) & 0xFF) | (key_56[4] >> 4));
 	key[5] = (unsigned char)(((key_56[4] << 3) & 0xFF) | (key_56[5] >> 5));
 	key[6] = (unsigned char)(((key_56[5] << 2) & 0xFF) | (key_56[6] >> 6));
-	key[7] = (unsigned char) ((key_56[6] << 1) & 0xFF);
+	key[7] = (unsigned char)((key_56[6] << 1) & 0xFF);
 
 	DES_set_odd_parity(&key);
 	DES_set_key_unchecked(&key, &ks);
@@ -4254,19 +4261,19 @@ void DesFreeKeyValue(DES_KEY_VALUE *v)
 }
 
 // Random generation of new DES key element
-DES_KEY_VALUE* DesRandKeyValue()
+DES_KEY_VALUE *DesRandKeyValue()
 {
 	UCHAR key_value[DES_KEY_SIZE];
 
-	DES_random_key((DES_cblock*)key_value);
+	DES_random_key((DES_cblock *)key_value);
 
 	return DesNewKeyValue(key_value);
 }
 
 // Generate a random 3DES key
-DES_KEY* Des3RandKey()
+DES_KEY *Des3RandKey()
 {
-	DES_KEY* k = ZeroMalloc(sizeof(DES_KEY));
+	DES_KEY *k = ZeroMalloc(sizeof(DES_KEY));
 
 	k->k1 = DesRandKeyValue();
 	k->k2 = DesRandKeyValue();
@@ -4276,9 +4283,9 @@ DES_KEY* Des3RandKey()
 }
 
 // Generate a random DES key
-DES_KEY* DesRandKey()
+DES_KEY *DesRandKey()
 {
-	DES_KEY* k = ZeroMalloc(sizeof(DES_KEY));
+	DES_KEY *k = ZeroMalloc(sizeof(DES_KEY));
 
 	k->k1 = DesRandKeyValue();
 	k->k2 = DesNewKeyValue(k->k1->KeyValue);
@@ -4288,7 +4295,7 @@ DES_KEY* DesRandKey()
 }
 
 // Release the 3DES key
-void Des3FreeKey(DES_KEY* k)
+void Des3FreeKey(DES_KEY *k)
 {
 	// Validate arguments
 	if (k == NULL)
@@ -4304,15 +4311,15 @@ void Des3FreeKey(DES_KEY* k)
 }
 
 // Release the DES key
-void DesFreeKey(DES_KEY* k)
+void DesFreeKey(DES_KEY *k)
 {
 	Des3FreeKey(k);
 }
 
 // Create a 3DES key
-DES_KEY* Des3NewKey(void* k1, void* k2, void* k3)
+DES_KEY *Des3NewKey(void *k1, void *k2, void *k3)
 {
-	DES_KEY* k;
+	DES_KEY *k;
 	// Validate arguments
 	if (k1 == NULL || k2 == NULL || k3 == NULL)
 	{
@@ -4329,7 +4336,7 @@ DES_KEY* Des3NewKey(void* k1, void* k2, void* k3)
 }
 
 // Create a DES key
-DES_KEY* DesNewKey(void* k1)
+DES_KEY *DesNewKey(void *k1)
 {
 	return Des3NewKey(k1, k1, k1);
 }
@@ -4433,7 +4440,7 @@ void AesEncrypt(void *dest, void *src, UINT size, AES_KEY_VALUE *k, void *ivec)
 	}
 
 	// Finalize the encryption
-	ret = EVP_EncryptFinal_ex(ctx, (unsigned char *) dest + dest_len, &len);
+	ret = EVP_EncryptFinal_ex(ctx, (unsigned char *)dest + dest_len, &len);
 
 	if (ret != 1)
 	{
@@ -4508,7 +4515,7 @@ void AesDecrypt(void *dest, void *src, UINT size, AES_KEY_VALUE *k, void *ivec)
 	}
 
 	// Finalize the decryption
-	ret = EVP_DecryptFinal_ex(ctx, (unsigned char *) dest + dest_len, &len);
+	ret = EVP_DecryptFinal_ex(ctx, (unsigned char *)dest + dest_len, &len);
 
 	if (ret != 1)
 	{
@@ -4534,20 +4541,20 @@ bool IsAesNiSupported()
 	__cpuid(regs, 1);
 	supported = (regs[2] >> 25) & 1;
 #else // _MSC_VER
-	#if defined(CPU_FEATURES_ARCH_X86)
-		const X86Features features = GetX86Info().features;
-		supported = features.aes;
-	#elif defined(CPU_FEATURES_ARCH_ARM)
-		const ArmFeatures features = GetArmInfo().features;
-		supported = features.aes;
-	#elif defined(CPU_FEATURES_ARCH_AARCH64)
-		const Aarch64Features features = GetAarch64Info().features;
-		supported = features.aes;
-	#elif defined(CPU_FEATURES_ARCH_MIPS)
-		//const MipsFeatures features = GetMipsInfo().features;  // no features.aes
-	#elif defined(CPU_FEATURES_ARCH_PPC)
-		//const PPCFeatures features = GetPPCInfo().features;  // no features.aes
-	#endif
+#if defined(CPU_FEATURES_ARCH_X86)
+	const X86Features features = GetX86Info().features;
+	supported = features.aes;
+#elif defined(CPU_FEATURES_ARCH_ARM)
+	const ArmFeatures features = GetArmInfo().features;
+	supported = features.aes;
+#elif defined(CPU_FEATURES_ARCH_AARCH64)
+	const Aarch64Features features = GetAarch64Info().features;
+	supported = features.aes;
+#elif defined(CPU_FEATURES_ARCH_MIPS)
+	//const MipsFeatures features = GetMipsInfo().features;  // no features.aes
+#elif defined(CPU_FEATURES_ARCH_PPC)
+	//const PPCFeatures features = GetPPCInfo().features;  // no features.aes
+#endif
 #endif // _MSC_VER
 
 	return supported;
@@ -4762,7 +4769,7 @@ static UINT Internal_HMac(const EVP_MD *md, void *dest, void *key, UINT key_size
 		Debug("Internal_HMac(): MdProcess() returned 0!\n");
 	}
 
-final:
+	final:
 	FreeMd(m);
 	return len;
 }
@@ -4805,8 +4812,9 @@ final:
 
 #define rol(bits, value) (((value) << (bits)) | ((value) >> (32 - (bits))))
 
-typedef struct MY_SHA0_CTX {
-//	const HASH_VTAB * f;
+typedef struct MY_SHA0_CTX
+{
+	//	const HASH_VTAB * f;
 	UINT64 count;
 	UCHAR buf[64];
 	UINT state[8];  // upto SHA2
@@ -4814,40 +4822,44 @@ typedef struct MY_SHA0_CTX {
 
 #define MY_SHA0_DIGEST_SIZE 20
 
-static void MY_SHA0_Transform(MY_SHA0_CTX* ctx) {
+static void MY_SHA0_Transform(MY_SHA0_CTX *ctx)
+{
 	UINT W[80];
 	UINT A, B, C, D, E;
-	UCHAR* p = ctx->buf;
+	UCHAR *p = ctx->buf;
 	int t;
-	for(t = 0; t < 16; ++t) {
-		UINT tmp =  *p++ << 24;
+	for (t = 0; t < 16; ++t)
+	{
+		UINT tmp = *p++ << 24;
 		tmp |= *p++ << 16;
 		tmp |= *p++ << 8;
 		tmp |= *p++;
 		W[t] = tmp;
 	}
-	for(; t < 80; t++) {
+	for (; t < 80; t++)
+	{
 		//W[t] = rol(1,W[t-3] ^ W[t-8] ^ W[t-14] ^ W[t-16]);
-		W[t] = (1,W[t-3] ^ W[t-8] ^ W[t-14] ^ W[t-16]);
+		W[t] = (1, W[t - 3] ^ W[t - 8] ^ W[t - 14] ^ W[t - 16]);
 	}
 	A = ctx->state[0];
 	B = ctx->state[1];
 	C = ctx->state[2];
 	D = ctx->state[3];
 	E = ctx->state[4];
-	for(t = 0; t < 80; t++) {
-		UINT tmp = rol(5,A) + E + W[t];
+	for (t = 0; t < 80; t++)
+	{
+		UINT tmp = rol(5, A) + E + W[t];
 		if (t < 20)
-			tmp += (D^(B&(C^D))) + 0x5A827999;
-		else if ( t < 40)
-			tmp += (B^C^D) + 0x6ED9EBA1;
-		else if ( t < 60)
-			tmp += ((B&C)|(D&(B|C))) + 0x8F1BBCDC;
+			tmp += (D ^ (B & (C ^ D))) + 0x5A827999;
+		else if (t < 40)
+			tmp += (B ^ C ^ D) + 0x6ED9EBA1;
+		else if (t < 60)
+			tmp += ((B & C) | (D & (B | C))) + 0x8F1BBCDC;
 		else
-			tmp += (B^C^D) + 0xCA62C1D6;
+			tmp += (B ^ C ^ D) + 0xCA62C1D6;
 		E = D;
 		D = C;
-		C = rol(30,B);
+		C = rol(30, B);
 		B = A;
 		A = tmp;
 	}
@@ -4857,7 +4869,8 @@ static void MY_SHA0_Transform(MY_SHA0_CTX* ctx) {
 	ctx->state[3] += D;
 	ctx->state[4] += E;
 }
-void MY_SHA0_init(MY_SHA0_CTX* ctx) {
+void MY_SHA0_init(MY_SHA0_CTX *ctx)
+{
 	//ctx->f = &SHA_VTAB;
 	ctx->state[0] = 0x67452301;
 	ctx->state[1] = 0xEFCDAB89;
@@ -4866,31 +4879,38 @@ void MY_SHA0_init(MY_SHA0_CTX* ctx) {
 	ctx->state[4] = 0xC3D2E1F0;
 	ctx->count = 0;
 }
-void MY_SHA0_update(MY_SHA0_CTX* ctx, const void* data, int len) {
-	int i = (int) (ctx->count & 63);
-	const UCHAR* p = (const UCHAR*)data;
+void MY_SHA0_update(MY_SHA0_CTX *ctx, const void *data, int len)
+{
+	int i = (int)(ctx->count & 63);
+	const UCHAR *p = (const UCHAR *)data;
 	ctx->count += len;
-	while (len--) {
+	while (len--)
+	{
 		ctx->buf[i++] = *p++;
-		if (i == 64) {
+		if (i == 64)
+		{
 			MY_SHA0_Transform(ctx);
 			i = 0;
 		}
 	}
 }
-const UCHAR* MY_SHA0_final(MY_SHA0_CTX* ctx) {
+const UCHAR *MY_SHA0_final(MY_SHA0_CTX *ctx)
+{
 	UCHAR *p = ctx->buf;
 	UINT64 cnt = ctx->count * 8;
 	int i;
-	MY_SHA0_update(ctx, (UCHAR*)"\x80", 1);
-	while ((ctx->count & 63) != 56) {
-		MY_SHA0_update(ctx, (UCHAR*)"\0", 1);
+	MY_SHA0_update(ctx, (UCHAR *)"\x80", 1);
+	while ((ctx->count & 63) != 56)
+	{
+		MY_SHA0_update(ctx, (UCHAR *)"\0", 1);
 	}
-	for (i = 0; i < 8; ++i) {
-		UCHAR tmp = (UCHAR) (cnt >> ((7 - i) * 8));
+	for (i = 0; i < 8; ++i)
+	{
+		UCHAR tmp = (UCHAR)(cnt >> ((7 - i) * 8));
 		MY_SHA0_update(ctx, &tmp, 1);
 	}
-	for (i = 0; i < 5; i++) {
+	for (i = 0; i < 5; i++)
+	{
 		UINT tmp = ctx->state[i];
 		*p++ = tmp >> 24;
 		*p++ = tmp >> 16;
@@ -4900,7 +4920,8 @@ const UCHAR* MY_SHA0_final(MY_SHA0_CTX* ctx) {
 	return ctx->buf;
 }
 /* Convenience function */
-const UCHAR* MY_SHA0_hash(const void* data, int len, UCHAR* digest) {
+const UCHAR *MY_SHA0_hash(const void *data, int len, UCHAR *digest)
+{
 	MY_SHA0_CTX ctx;
 	MY_SHA0_init(&ctx);
 	MY_SHA0_update(&ctx, data, len);

@@ -8,7 +8,7 @@
 
 #ifndef __DEBUG_SHORTEN_MACROS__
 #define __DEBUG_SHORTEN_MACROS__
-#define Dbg(text, ...) Debug("%s:%u %s " text "\n", __FILE__, __LINE__, __func__, ##__VA_ARGS__)
+#define Dbg(text, ...) Debug("" text "\n", ##__VA_ARGS__)
 #define DbgBuf(text, buf) DbgPointer(text, buf->Buf, buf->Size)
 #endif // __DEBUG_SHORTEN_MACROS__
 
@@ -118,12 +118,12 @@ typedef struct generic_payload
 #define IKEv2_TRANSFORM_ID_PRF_HMAC_SHA1	2 // 2104
 #define IKEv2_TRANSFORM_ID_PRF_HMAC_TIGER	3
 
-#define IKEv2_TRANSFORM_ID_AUTH_NONE			0 // OK
-#define IKEv2_TRANSFORM_ID_AUTH_HMAC_MD5_96		1 // 2403
-#define IKEv2_TRANSFORM_ID_AUTH_HMAC_SHA1_96	2 // 2404
-#define IKEv2_TRANSFORM_ID_AUTH_DES_MAC			3
-#define IKEv2_TRANSFORM_ID_AUTH_KPDK_MD5		4
-#define IKEv2_TRANSFORM_ID_AUTH_AES_XCBC_96		5 // 3566
+#define IKEv2_TRANSFORM_ID_AUTH_NONE				0 // OK
+#define IKEv2_TRANSFORM_ID_AUTH_HMAC_MD5_96			1 // 2403
+#define IKEv2_TRANSFORM_ID_AUTH_HMAC_SHA1_96		2 // 2404
+#define IKEv2_TRANSFORM_ID_AUTH_DES_MAC				3
+#define IKEv2_TRANSFORM_ID_AUTH_KPDK_MD5			4
+#define IKEv2_TRANSFORM_ID_AUTH_HMAC_SHA2_256_128	12 // 3566
 
 #define IKEv2_TRANSFORM_ID_DH_NONE	0 // not used in IKE
 #define IKEv2_TRANSFORM_ID_DH_768	1

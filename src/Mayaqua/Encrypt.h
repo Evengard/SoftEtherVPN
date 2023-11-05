@@ -414,7 +414,7 @@ void LoadXDates(X *x);
 bool CheckXDate(X *x, UINT64 current_system_time);
 bool CheckXDateNow(X *x);
 NAME *NewName(wchar_t *common_name, wchar_t *organization, wchar_t *unit,
-			  wchar_t *country, wchar_t *state, wchar_t *local);
+	wchar_t *country, wchar_t *state, wchar_t *local);
 void *NameToX509Name(NAME *nm);
 void FreeX509Name(void *xn);
 bool AddX509Name(void *xn, int nid, wchar_t *str);
@@ -469,16 +469,16 @@ BUF *RsaPublicToBuf(K *k);
 
 DES_KEY_VALUE *DesNewKeyValue(void *value);
 void DesFreeKeyValue(DES_KEY_VALUE *v);
-DES_KEY* Des3NewKey(void* k1, void* k2, void* k3);
-void Des3FreeKey(DES_KEY* k);
-DES_KEY* DesNewKey(void* k1);
-void DesFreeKey(DES_KEY* k);
-DES_KEY* Des3RandKey();
-DES_KEY* DesRandKey();
-DES_KEY_VALUE* DesRandKeyValue();
-void Des3Encrypt(void* dest, void* src, UINT size, DES_KEY* key, void* ivec);
+DES_KEY *Des3NewKey(void *k1, void *k2, void *k3);
+void Des3FreeKey(DES_KEY *k);
+DES_KEY *DesNewKey(void *k1);
+void DesFreeKey(DES_KEY *k);
+DES_KEY *Des3RandKey();
+DES_KEY *DesRandKey();
+DES_KEY_VALUE *DesRandKeyValue();
+void Des3Encrypt(void *dest, void *src, UINT size, DES_KEY *key, void *ivec);
 void Des3Encrypt2(void *dest, void *src, UINT size, DES_KEY_VALUE *k1, DES_KEY_VALUE *k2, DES_KEY_VALUE *k3, void *ivec);
-void Des3Decrypt(void* dest, void* src, UINT size, DES_KEY* key, void* ivec);
+void Des3Decrypt(void *dest, void *src, UINT size, DES_KEY *key, void *ivec);
 void Des3Decrypt2(void *dest, void *src, UINT size, DES_KEY_VALUE *k1, DES_KEY_VALUE *k2, DES_KEY_VALUE *k3, void *ivec);
 void Sha(UINT sha_type, void *dst, void *src, UINT size);
 
@@ -535,6 +535,7 @@ void Sha2_384(void *dst, void *src, UINT size);
 void Sha2_512(void *dst, void *src, UINT size);
 UINT HMacSha1(void *dst, void *key, UINT key_size, void *data, UINT data_size);
 UINT HMacMd5(void *dst, void *key, UINT key_size, void *data, UINT data_size);
+UINT HMacSha256(void *dst, void *key, UINT key_size, void *data, UINT data_size);
 void Enc_tls1_PRF(unsigned char *label, int label_len, const unsigned char *sec, int slen, unsigned char *out1, int olen);
 
 int GetSslClientCertIndex();

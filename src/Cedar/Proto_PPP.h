@@ -140,6 +140,14 @@
 #define	PPP_STATUS_FAIL					0x1000
 #define	PPP_STATUS_AUTH_FAIL			0x1010
 
+// EAP states
+#define PPP_EAP_STATUS_NO_AUTH				PPP_STATUS_CONNECTED
+#define PPP_EAP_STATUS_BEFORE_AUTH			PPP_STATUS_BEFORE_AUTH
+#define PPP_EAP_STATUS_AUTHENTICATING		PPP_STATUS_AUTHENTICATING
+#define PPP_EAP_STATUS_AUTH_BEFORE_LOGIN	0x18
+#define PPP_EAP_STATUS_AUTH_SUCCESS			PPP_STATUS_AUTH_SUCCESS
+#define PPP_EAP_STATUS_AUTH_FAIL			PPP_STATUS_AUTH_FAIL
+
 #define	PPP_UNSPECIFIED					0xFFFF
 
 //// Type
@@ -167,7 +175,6 @@ struct PPP_LCP
 {
 	UCHAR Code;							// Code
 	UCHAR Id;							// ID
-	UCHAR MagicNumber[4];				// Magic number
 	LIST *OptionList;					// PPP options list
 	void *Data;							// Data
 	UINT DataSize;						// Data size
@@ -198,12 +205,14 @@ struct PPP_OPTION
 struct PPP_EAP
 {
 	UCHAR Type;
-	union {
+	union
+	{
 		UCHAR Data[0];
 		struct PPP_EAP_TLS
 		{
 			UCHAR Flags;
-			union {
+			union
+			{
 				UCHAR TlsDataWithoutLength[0];
 				struct
 				{
@@ -284,30 +293,14 @@ struct PPP_SESSION
 	char CryptName[MAX_SIZE];			// Cipher algorithm name
 	UINT AdjustMss;						// MSS value
 	TUBE_FLUSH_LIST *FlushList;			// Tube Flush List
-	bool EnableMSCHAPv2;				// Enable the MS-CHAP v2
+
 	USHORT AuthProtocol;				// Authentication protocol
 	bool AuthOk;						// Flag for whether the authentication was successful
-	UCHAR MsChapV2_ServerChallenge[16];	// MS-CHAPv2 Server Challenge
-	UCHAR MsChapV2_ClientChallenge[16];	// MS-CHAPv2 Client Challenge
-	UCHAR MsChapV2_ClientResponse[24];	// MS-CHAPv2 Client Response
-	UCHAR MsChapV2_ServerResponse[20];	// MS-CHAPv2 Server Response
-	UINT MsChapV2_ErrorCode;			// Authentication failure error code of MS-CHAPv2
-	UINT MsChapV2_PacketId;				// MS-CHAPv2 Packet ID
-
-	bool UseEapRadius;					// Use EAP for RADIUS authentication
-	EAP_CLIENT *EapClient;				// EAP client
 
 	UCHAR ServerInterfaceId[8];			// Server IPv6CP Interface Identifier
 	UCHAR ClientInterfaceId[8];			// Client IPv6CP Interface Identifier
 
 	UINT PPPStatus;
-
-	// EAP contexts
-	UINT Eap_Protocol;					// Current EAP Protocol used
-	UINT Eap_PacketId;					// EAP Packet ID;
-	ETHERIP_ID Eap_Identity;			// Received from client identity
-	bool Eap_MatchUserByCert;			// Attempt to match the user from it's certificate during EAP-TLS, ignoring the EAP-identification
-	PPP_EAP_TLS_CONTEXT Eap_TlsCtx;		// Context information for EAP TLS. May be possibly reused for EAP TTLS?
 
 	LIST *SentReqPacketList;			// Sent requests list
 
@@ -318,6 +311,31 @@ struct PPP_SESSION
 	UINT64 DataTimeout;
 	UINT64 UserConnectionTimeout;
 	UINT64 UserConnectionTick;
+
+	PPP_EAP_SESSION *EapSession;
+};
+
+struct PPP_EAP_SESSION
+{
+	CEDAR *Cedar;
+	bool UseEapRadius;					// Use EAP for RADIUS authentication
+	EAP_CLIENT *EapClient;				// EAP client
+
+	bool EnableMSCHAPv2;				// Enable the MS-CHAP v2
+	UCHAR MsChapV2_ServerChallenge[16];	// MS-CHAPv2 Server Challenge
+	UCHAR MsChapV2_ClientChallenge[16];	// MS-CHAPv2 Client Challenge
+	UCHAR MsChapV2_ClientResponse[24];	// MS-CHAPv2 Client Response
+	UCHAR MsChapV2_ServerResponse[20];	// MS-CHAPv2 Server Response
+	UINT MsChapV2_ErrorCode;			// Authentication failure error code of MS-CHAPv2
+	UINT MsChapV2_PacketId;				// MS-CHAPv2 Packet ID
+
+	UINT EapStatus;
+
+	UINT Eap_Protocol;					// Current EAP Protocol used
+	UINT Eap_PacketId;					// EAP Packet ID;
+	ETHERIP_ID Eap_Identity;			// Received from client identity
+	bool Eap_MatchUserByCert;			// Attempt to match the user from it's certificate during EAP-TLS, ignoring the EAP-identification
+	PPP_EAP_TLS_CONTEXT Eap_TlsCtx;		// Context information for EAP TLS. May be possibly reused for EAP TTLS?
 };
 
 
@@ -329,6 +347,7 @@ void PPPThread(THREAD *thread, void *param);
 
 // Entry point
 THREAD *NewPPPSession(CEDAR *cedar, IP *client_ip, UINT client_port, IP *server_ip, UINT server_port, TUBE *send_tube, TUBE *recv_tube, char *postfix, char *client_software_name, char *client_hostname, char *crypt_name, UINT adjust_mss);
+PPP_EAP_SESSION *NewPPPEAPSession(CEDAR *cedar);
 
 // PPP processing functions
 bool PPPRejectUnsupportedPacket(PPP_SESSION *p, PPP_PACKET *pp);
@@ -362,7 +381,8 @@ bool PPPAckLCPOptionsEx(PPP_SESSION *p, PPP_PACKET *pp, bool simulate);
 
 // PPP networking functions
 // Send packets
-bool PPPSendAndRetransmitRequest(PPP_SESSION *p, USHORT protocol, PPP_LCP *c);
+bool PPPSendAndRetransmitRequest(PPP_SESSION *p, PPP_PACKET *pp);
+bool PPPSendAndRetransmitLCPRequest(PPP_SESSION *p, USHORT protocol, PPP_LCP *c);
 bool PPPSendPacketAndFree(PPP_SESSION *p, PPP_PACKET *pp);
 bool PPPSendPacketEx(PPP_SESSION *p, PPP_PACKET *pp, bool no_flush);
 // Receive packets
@@ -392,7 +412,9 @@ bool PPPSetIPOptionToLCP(PPP_IPOPTION *o, PPP_LCP *c, bool only_modify);
 bool PPPGetIPAddressValueFromLCP(PPP_LCP *c, UINT type, IP *ip);
 bool PPPSetIPAddressValueToLCP(PPP_LCP *c, UINT type, IP *ip, bool only_modify);
 // EAP packet utilities
-bool PPPProcessEAPTlsResponse(PPP_SESSION *p, PPP_EAP *eap_packet, UINT eapSize);
+PPP_LCP *PPPSendEAPRequest(PPP_EAP_SESSION *p, UCHAR *nextId);
+PPP_LCP *PPPProcessEAPTlsResponse(PPP_EAP_SESSION *p, PPP_EAP *eap_packet, UINT eapSize, UCHAR *nextId, UINT mru);
+PPP_LCP *PPPProcessEAPTlsResponsePart2(PPP_EAP_SESSION *p, PPP_EAP *eap_packet, UINT eapSize, UCHAR *nextId, UINT mru);
 PPP_LCP *BuildEAPPacketEx(UCHAR code, UCHAR id, UCHAR type, UINT datasize);
 PPP_LCP *BuildEAPTlsPacketEx(UCHAR code, UCHAR id, UCHAR type, UINT datasize, UCHAR flags);
 PPP_LCP *BuildEAPTlsRequest(UCHAR id, UINT datasize, UCHAR flags);
@@ -403,11 +425,12 @@ void PPPSetStatus(PPP_SESSION *p, UINT status);
 
 // Memory freeing functions
 void FreePPPSession(PPP_SESSION *p);
+void FreePPPEAPSession(PPP_EAP_SESSION *p);
 void FreePPPLCP(PPP_LCP *c);
 void FreePPPOptionList(LIST *o);
 void FreePPPPacket(PPP_PACKET *pp);
 void FreePPPPacketEx(PPP_PACKET *pp, bool no_free_struct);
-void PPPFreeEapClient(PPP_SESSION *p);
+void PPPFreeEapClient(PPP_EAP_SESSION *p);
 
 // Utility functions used not only in PPP stack
 bool PPPParseUsername(CEDAR *cedar, char *src, ETHERIP_ID *dst);
